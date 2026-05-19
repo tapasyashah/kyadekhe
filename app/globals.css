@@ -2,26 +2,94 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
+@layer base {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    /* KyaDekhe brand tokens */
+    --saffron: 255 153 51;
+    --burgundy: 92 30 46;
+    --cream: 255 248 231;
+    --gold: 212 175 55;
+
+    /* Dark mode as primary (cinema = dark room) */
+    --background: 14 10 11;
+    --foreground: 255 248 231;
+    --card: 26 16 20;
+    --card-foreground: 255 248 231;
+    --popover: 26 16 20;
+    --popover-foreground: 255 248 231;
+    --primary: 255 153 51;
+    --primary-foreground: 14 10 11;
+    --secondary: 92 30 46;
+    --secondary-foreground: 255 248 231;
+    --muted: 42 24 32;
+    --muted-foreground: 168 144 128;
+    --accent: 212 175 55;
+    --accent-foreground: 14 10 11;
+    --destructive: 239 68 68;
+    --destructive-foreground: 255 248 231;
+    --border: 255 153 51;
+    --input: 255 153 51;
+    --ring: 255 153 51;
+    --radius: 0.75rem;
+  }
+
+  * {
+    @apply border-border;
+    outline-color: rgb(var(--ring) / 0.5);
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  html {
+    color-scheme: dark;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-}
-
 @layer utilities {
+  .font-display {
+    font-family: var(--font-display), Georgia, serif;
+  }
+
   .text-balance {
     text-wrap: balance;
+  }
+
+  .bg-card-dark {
+    background-color: rgb(var(--card));
+  }
+
+  .text-saffron {
+    color: rgb(var(--saffron));
+  }
+
+  .text-gold {
+    color: rgb(var(--gold));
+  }
+
+  .text-cream {
+    color: rgb(var(--cream));
+  }
+
+  .bg-burgundy {
+    background-color: rgb(var(--burgundy));
+  }
+
+  .poster-gradient {
+    background: linear-gradient(
+      to top,
+      rgba(14, 10, 11, 0.95) 0%,
+      rgba(14, 10, 11, 0.6) 50%,
+      rgba(14, 10, 11, 0.1) 100%
+    );
+  }
+
+  .swipe-right-hint {
+    box-shadow: 0 0 0 3px #22c55e;
+  }
+
+  .swipe-left-hint {
+    box-shadow: 0 0 0 3px #ef4444;
   }
 }
