@@ -12,11 +12,18 @@ interface RecommendedTitle {
   score: number
 }
 
+const LANGUAGES = ['All', 'Hindi', 'Gujarati'] as const
+type Language = typeof LANGUAGES[number]
+
+const SWIPE_HINT_KEY = 'kyadekhe_swipe_hint_seen'
+
 export default function DiscoverPage() {
   const [stack, setStack] = useState<RecommendedTitle[]>([])
   const [loading, setLoading] = useState(true)
   const [region, setRegion] = useState('IN')
   const [swiped, setSwiped] = useState(0)
+  const [language, setLanguage] = useState<Language>('All')
+  const [showHint, setShowHint] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -25,17 +32,34 @@ export default function DiscoverPage() {
     })
   }, [])
 
+  useEffect(() => {
+    if (!localStorage.getItem(SWIPE_HINT_KEY)) {
+      setShowHint(true)
+    }
+  }, [])
+
+  function dismissHint() {
+    localStorage.setItem(SWIPE_HINT_KEY, '1')
+    setShowHint(false)
+  }
+
   const fetchMore = useCallback(async () => {
     setLoading(true)
-    const res = await fetch('/api/recommendations?limit=10')
+    const params = new URLSearchParams({ limit: '10' })
+    if (language !== 'All') params.set('language', language)
+    const res = await fetch(`/api/recommendations?${params}`)
     if (res.ok) {
       const data = await res.json() as RecommendedTitle[]
       setStack((prev) => [...prev, ...data])
     }
     setLoading(false)
-  }, [])
+  }, [language])
 
-  useEffect(() => { fetchMore() }, [fetchMore])
+  useEffect(() => {
+    setStack([])
+    fetchMore()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language])
 
   // When stack runs low, fetch more
   useEffect(() => {
@@ -118,13 +142,61 @@ export default function DiscoverPage() {
 
   return (
     <main className="min-h-screen flex flex-col">
+      {/* Swipe hint overlay — first visit only */}
+      {showHint && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-6 bg-black/80 backdrop-blur-sm px-8 text-center"
+          onClick={dismissHint}
+        >
+          <div className="text-5xl">👋</div>
+          <h2 className="font-display text-2xl font-bold text-cream">How to discover</h2>
+          <div className="flex flex-col gap-3 text-sm text-muted-foreground">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">←</span>
+              <span>Swipe left to skip</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">→</span>
+              <span>Swipe right to love it</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-2xl">↑</span>
+              <span>Swipe up to save for later</span>
+            </div>
+          </div>
+          <button
+            className="mt-2 rounded-full bg-saffron px-6 py-2 text-sm font-semibold text-black"
+            onClick={dismissHint}
+          >
+            Got it
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-10 pb-4">
         <h1 className="font-display text-2xl font-bold text-saffron">KyaDekhe</h1>
         <span className="text-xs text-muted-foreground">{swiped} rated</span>
       </div>
 
-      {/* Swipe hint */}
+      {/* Language filter chips */}
+      <div className="flex gap-2 px-5 mb-3">
+        {LANGUAGES.map((lang) => (
+          <button
+            key={lang}
+            onClick={() => setLanguage(lang)}
+            className={`rounded-full px-4 py-1 text-xs font-medium transition-colors ${
+              language === lang
+                ? 'bg-saffron text-black'
+                : 'bg-muted text-muted-foreground hover:bg-muted/80'
+            }`}
+          >
+            {lang}
+          </button>
+        ))}
+      </div>
+
+      {/* Swipe direction hint */}
       <div className="flex justify-center gap-6 text-xs text-muted-foreground px-5 mb-4">
         <span>← Skip</span>
         <span>↑ Save</span>
@@ -132,7 +204,7 @@ export default function DiscoverPage() {
       </div>
 
       {/* Card stack */}
-      <div className="flex-1 relative mx-5 max-w-sm mx-auto" style={{ maxWidth: 400 }}>
+      <div className="flex-1 relative w-full max-w-[400px] mx-auto px-5">
         {stack.slice(0, 4).map((item, i) => (
           <div
             key={item.title.id}

@@ -15,8 +15,30 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'KyaDekhe — What to Watch in Hindi Cinema',
-  description: 'Discover Hindi films and series you haven\'t seen — intelligently. Swipe, rate, and get culturally aware recommendations.',
+  title: 'KyaDekhe — What to Watch in Bollywood',
+  description: 'Discover Hindi and Gujarati films you haven\'t seen — intelligently. Swipe, rate, and get culturally aware recommendations.',
+  metadataBase: new URL('https://kyadekhe.vercel.app'),
+  openGraph: {
+    title: 'KyaDekhe — What to Watch in Bollywood',
+    description: 'Swipe through Bollywood. Get picks that actually match your taste.',
+    url: 'https://kyadekhe.vercel.app',
+    siteName: 'KyaDekhe',
+    type: 'website',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'KyaDekhe — Bollywood discovery app',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'KyaDekhe — What to Watch in Bollywood',
+    description: 'Swipe through Bollywood. Get picks that actually match your taste.',
+    images: ['/og-image.png'],
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

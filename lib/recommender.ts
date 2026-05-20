@@ -15,6 +15,7 @@ export interface RecommendOptions {
   platformFilter?: string
   eraFilter?: string
   region?: string
+  languageFilter?: string
 }
 
 export function cosineSimilarity(
@@ -67,7 +68,7 @@ export async function getRecommendations(
   supabase: SupabaseClient<Database>,
   opts: RecommendOptions = {}
 ): Promise<RecommendedTitle[]> {
-  const { limit = 20, moodFilters, platformFilter, eraFilter, region = 'IN' } = opts
+  const { limit = 20, moodFilters, platformFilter, eraFilter, region = 'IN', languageFilter } = opts
 
   const tasteVector = await getTasteVector(userId, supabase)
 
@@ -106,11 +107,16 @@ export async function getRecommendations(
 
   if (eligibleTitleIds.length === 0) return []
 
-  const { data: titles } = await supabase
+  let titlesQuery = supabase
     .from('titles')
     .select('*')
     .in('id', eligibleTitleIds)
-    .limit(300)
+
+  if (languageFilter && languageFilter !== 'All') {
+    titlesQuery = titlesQuery.eq('language', languageFilter)
+  }
+
+  const { data: titles } = await titlesQuery.limit(300)
 
   if (!titles) return []
 
