@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: '/og-image.png',
+        url: '/api/og',
         width: 1200,
         height: 630,
         alt: 'KyaDekhe — Bollywood discovery app',
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'KyaDekhe — What to Watch in Bollywood',
     description: 'Swipe through Bollywood. Get picks that actually match your taste.',
-    images: ['/og-image.png'],
+    images: ['/api/og'],
   },
 }
 
