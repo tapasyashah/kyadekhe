@@ -135,12 +135,12 @@ export function SwipeCard({
               </span>
             )}
             {era && (
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(212,175,55,0.15)', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.3)' }}>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(212,175,55,0.15)', color: 'rgb(var(--gold))', border: '1px solid rgba(212,175,55,0.3)' }}>
                 {era}
               </span>
             )}
             {watchWith && (
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(255,153,51,0.1)', color: 'var(--saffron)', border: '1px solid rgba(255,153,51,0.2)' }}>
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(255,153,51,0.1)', color: 'rgb(var(--saffron))', border: '1px solid rgba(255,153,51,0.2)' }}>
                 {watchWith}
               </span>
             )}

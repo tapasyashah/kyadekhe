@@ -29,18 +29,37 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const limit = Math.min(Number(searchParams.get('limit') ?? 20), 50)
     const languageFilter = searchParams.get('language') ?? undefined
+    const moodId = searchParams.get('mood')
+    const eraFilter = searchParams.get('era') ?? undefined
+    const platformFilter = searchParams.get('platform') ?? undefined
+    const excludeTitleIds = (searchParams.get('exclude') ?? '')
+      .split(',')
+      .map((id) => id.trim())
+      .filter((id) => /^[0-9a-f-]{36}$/i.test(id))
+      .slice(0, 100)
+
+    let moodFilters: Record<string, string[]> | undefined
+    if (moodId) {
+      const mood = MOODS.find((m) => m.id === moodId)
+      if (mood) moodFilters = mood.filters as unknown as Record<string, string[]>
+    }
 
     if (!user) {
       // Guest mode: return top-rated titles without personalisation
+      const candidateLimit = Math.min(300, Math.max(limit * 10, 80))
       let query = supabase
         .from('titles')
         .select('*')
         .not('imdb_rating', 'is', null)
         .order('imdb_rating', { ascending: false })
-        .limit(limit)
+        .limit(candidateLimit)
 
       if (languageFilter && languageFilter !== 'All') {
         query = query.eq('language', languageFilter)
+      }
+
+      if (excludeTitleIds.length > 0) {
+        query = query.not('id', 'in', `(${excludeTitleIds.join(',')})`)
       }
 
       const { data: titles } = await query
@@ -64,35 +83,43 @@ export async function GET(request: Request) {
         streamingByTitleId.set(row.title_id, [...existing, row])
       }
 
-      const results = titles.map((title) => ({
+      let results = titles.map((title) => ({
         title,
         tags: tagsByTitleId.get(title.id) ?? {},
         score: Number(title.imdb_rating ?? 0),
         streaming: streamingByTitleId.get(title.id) ?? [],
       }))
 
-      return NextResponse.json(results)
+      if (moodFilters && Object.keys(moodFilters).length > 0) {
+        results = results.filter((result) => {
+          for (const [field, allowed] of Object.entries(moodFilters)) {
+            const value = result.tags[field]
+            if (typeof value !== 'string' || !allowed.includes(value)) return false
+          }
+          return true
+        })
+      }
+
+      if (eraFilter && eraFilter !== 'all') {
+        results = results.filter((result) => result.tags['era'] === eraFilter)
+      }
+
+      if (platformFilter) {
+        results = results.filter((result) => result.streaming.some((s) => s.platform === platformFilter))
+      }
+
+      return NextResponse.json(results.slice(0, limit))
     }
 
     if (isRateLimited(user.id)) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
 
-    const moodId = searchParams.get('mood')
-    const eraFilter = searchParams.get('era') ?? undefined
-    const platformFilter = searchParams.get('platform') ?? undefined
-
     const { data: profile } = await supabase.from('users').select('region').eq('id', user.id).single()
     const region = profile?.region ?? 'IN'
 
-    let moodFilters: Record<string, string[]> | undefined
-    if (moodId) {
-      const mood = MOODS.find((m) => m.id === moodId)
-      if (mood) moodFilters = mood.filters as unknown as Record<string, string[]>
-    }
-
     const results = await getRecommendations(user.id, supabase, {
-      limit, moodFilters, eraFilter, platformFilter, region, languageFilter,
+      limit, moodFilters, eraFilter, platformFilter, region, languageFilter, excludeTitleIds,
     })
 
     return NextResponse.json(results)

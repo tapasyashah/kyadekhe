@@ -56,9 +56,9 @@ export default function FeedPage() {
             onClick={() => setEra(e)}
             className="whitespace-nowrap text-xs px-3 py-1.5 rounded-full border transition-colors flex-shrink-0"
             style={{
-              background: era === e ? 'var(--saffron)' : 'transparent',
-              color: era === e ? '#0E0A0B' : 'var(--muted-foreground)',
-              borderColor: era === e ? 'var(--saffron)' : 'rgba(255,153,51,0.2)',
+              background: era === e ? 'rgb(var(--saffron))' : 'transparent',
+              color: era === e ? '#0E0A0B' : 'rgb(var(--muted-foreground))',
+              borderColor: era === e ? 'rgb(var(--saffron))' : 'rgba(255,153,51,0.2)',
             }}
           >
             {e === 'all' ? 'All eras' : e}

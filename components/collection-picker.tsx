@@ -52,7 +52,15 @@ export function CollectionPicker({ titleId, open, onClose }: CollectionPickerPro
     if (!newName.trim()) return
     setCreating(true)
     const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setFeedback('Sign in to save collections.')
+      setCreating(false)
+      return
+    }
+
     const { data, error } = await supabase.from('collections').insert({
+      user_id: user.id,
       name: newName.trim(),
       emoji: '🎬',
     }).select().single()
@@ -67,7 +75,7 @@ export function CollectionPicker({ titleId, open, onClose }: CollectionPickerPro
 
   return (
     <Sheet open={open} onOpenChange={(v) => !v && onClose()}>
-      <SheetContent side="bottom" className="rounded-t-2xl" style={{ background: 'var(--card)', borderColor: 'rgba(255,153,51,0.15)' }}>
+      <SheetContent side="bottom" className="rounded-t-2xl" style={{ background: 'rgb(var(--card))', borderColor: 'rgba(255,153,51,0.15)' }}>
         <SheetHeader>
           <SheetTitle className="text-cream font-display">Add to collection</SheetTitle>
         </SheetHeader>
@@ -107,7 +115,7 @@ export function CollectionPicker({ titleId, open, onClose }: CollectionPickerPro
           <Button
             onClick={createCollection}
             disabled={creating || !newName.trim()}
-            style={{ background: 'var(--saffron)', color: '#0E0A0B' }}
+            style={{ background: 'rgb(var(--saffron))', color: '#0E0A0B' }}
           >
             {creating ? '...' : 'Create'}
           </Button>

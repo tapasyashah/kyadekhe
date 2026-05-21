@@ -64,6 +64,10 @@
     color: rgb(var(--saffron));
   }
 
+  .bg-saffron {
+    background-color: rgb(var(--saffron));
+  }
+
   .text-gold {
     color: rgb(var(--gold));
   }
@@ -91,5 +95,13 @@
 
   .swipe-left-hint {
     box-shadow: 0 0 0 3px #ef4444;
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
   }
 }

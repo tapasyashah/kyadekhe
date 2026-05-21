@@ -26,6 +26,12 @@ function AppleIcon() {
   )
 }
 
+function getSafeNextPath() {
+  const next = new URLSearchParams(window.location.search).get('next')
+  if (!next || !next.startsWith('/') || next.startsWith('//')) return null
+  return next
+}
+
 export default function SignupPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
@@ -41,7 +47,7 @@ export default function SignupPage() {
     setError(null)
 
     const supabase = createClient()
-    const { error: authError } = await supabase.auth.signUp({
+    const { data, error: authError } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { full_name: name } },
@@ -53,7 +59,13 @@ export default function SignupPage() {
       return
     }
 
-    router.push('/onboarding')
+    if (!data.session) {
+      setError('Check your email to confirm your account, then sign in to keep going.')
+      setLoading(false)
+      return
+    }
+
+    router.push(getSafeNextPath() ?? '/onboarding')
   }
 
   async function handleSocialLogin(provider: 'google' | 'apple') {
@@ -63,7 +75,7 @@ export default function SignupPage() {
     await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(getSafeNextPath() ?? '/discover')}`,
       },
     })
     setSocialLoading(null)
@@ -146,7 +158,7 @@ export default function SignupPage() {
           <Button
             type="submit"
             className="w-full font-semibold"
-            style={{ background: 'var(--saffron)', color: '#0E0A0B' }}
+            style={{ background: 'rgb(var(--saffron))', color: '#0E0A0B' }}
             disabled={loading || socialLoading !== null}
           >
             {loading ? 'Creating account...' : 'Create Account'}

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { generateWhy } from '@/lib/claude'
 import { getTasteVector, tasteClusterKey } from '@/lib/taste-vector'
 import type { TitleTags } from '@/lib/claude'
@@ -16,9 +16,10 @@ export async function POST(request: Request) {
 
     const tasteVector = await getTasteVector(user.id, supabase)
     const cluster = tasteClusterKey(tasteVector)
+    const cacheClient = process.env.SUPABASE_SERVICE_ROLE_KEY ? createServiceClient() : supabase
 
     // Check cache first
-    const { data: cached } = await supabase
+    const { data: cached } = await cacheClient
       .from('why_cache')
       .select('explanation')
       .eq('title_id', titleId)
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
     )
 
     // Cache it
-    await supabase.from('why_cache').upsert({
+    await cacheClient.from('why_cache').upsert({
       title_id: titleId,
       taste_cluster: cluster,
       explanation,

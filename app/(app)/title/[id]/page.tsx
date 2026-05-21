@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Image from 'next/image'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { StreamingPills } from '@/components/streaming-pills'
 import { CollectionPicker } from '@/components/collection-picker'
-import { TitleCard } from '@/components/title-card'
 import type { Tables } from '@/lib/supabase/types'
 
 const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w780'
@@ -22,37 +22,45 @@ export default function TitlePage() {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [rating, setRating] = useState<string | null>(null)
+  const [isGuest, setIsGuest] = useState(false)
+  const [authPrompt, setAuthPrompt] = useState<'rating' | 'collection' | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
     async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      setIsGuest(!user)
+
       const [{ data: t }, { data: regionRow }] = await Promise.all([
         supabase.from('titles').select('*').eq('id', id).single(),
-        supabase.from('users').select('region').single(),
+        user
+          ? supabase.from('users').select('region').eq('id', user.id).single()
+          : Promise.resolve({ data: null }),
       ])
 
       if (!t) { setLoading(false); return }
       setTitle(t)
       setRegion(regionRow?.region ?? 'IN')
 
-      const [{ data: tagRow }, { data: streamRows }, { data: ratingRow }] = await Promise.all([
+      const [{ data: tagRow }, { data: streamRows }, ratingResult] = await Promise.all([
         supabase.from('title_tags').select('tags').eq('title_id', id).single(),
         supabase.from('streaming_availability').select('*').eq('title_id', id),
-        supabase.from('ratings').select('rating').eq('title_id', id).single(),
+        user
+          ? supabase.from('ratings').select('rating').eq('user_id', user.id).eq('title_id', id).single()
+          : Promise.resolve({ data: null }),
       ])
 
       setTags(tagRow?.tags as Record<string, unknown> ?? null)
       setStreaming(streamRows ?? [])
-      setRating(ratingRow?.rating ?? null)
+      setRating(ratingResult.data?.rating ?? null)
       setLoading(false)
 
       // Load "why" async
-      const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         fetch('/api/why', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ titleId: id, userId: user.id }),
+          body: JSON.stringify({ titleId: id }),
         }).then((r) => r.json()).then((d: { explanation: string }) => setWhy(d.explanation)).catch(() => null)
       }
     }
@@ -62,7 +70,11 @@ export default function TitlePage() {
   async function rateTitle(r: 'loved' | 'liked' | 'meh' | 'disliked' | 'havent_seen' | 'skip') {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user || !title) return
+    if (!user) {
+      setAuthPrompt('rating')
+      return
+    }
+    if (!title) return
     await supabase.from('ratings').upsert({ user_id: user.id, title_id: title.id, rating: r }, { onConflict: 'user_id,title_id' })
     setRating(r)
   }
@@ -79,7 +91,7 @@ export default function TitlePage() {
         ) : (
           <div className="absolute inset-0 bg-gradient-to-b from-burgundy/30 to-transparent" />
         )}
-        <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 30%, var(--background))' }} />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 30%, rgb(var(--background)))' }} />
       </div>
 
       <div className="px-5 -mt-24 relative z-10 pb-8">
@@ -108,7 +120,7 @@ export default function TitlePage() {
               const val = tags[field]
               if (typeof val !== 'string') return null
               return (
-                <span key={field} className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,153,51,0.1)', color: 'var(--saffron)', border: '1px solid rgba(255,153,51,0.2)' }}>
+                <span key={field} className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,153,51,0.1)', color: 'rgb(var(--saffron))', border: '1px solid rgba(255,153,51,0.2)' }}>
                   {val}
                 </span>
               )
@@ -150,8 +162,8 @@ export default function TitlePage() {
                 onClick={() => rateTitle(r as 'loved' | 'liked' | 'meh' | 'disliked' | 'havent_seen' | 'skip')}
                 className="flex-1 py-2 rounded-xl text-xl transition-all border"
                 style={{
-                  background: rating === r ? 'rgba(255,153,51,0.15)' : 'var(--card)',
-                  borderColor: rating === r ? 'var(--saffron)' : 'rgba(255,153,51,0.1)',
+                  background: rating === r ? 'rgba(255,153,51,0.15)' : 'rgb(var(--card))',
+                  borderColor: rating === r ? 'rgb(var(--saffron))' : 'rgba(255,153,51,0.1)',
                 }}
               >
                 {emoji}
@@ -162,13 +174,45 @@ export default function TitlePage() {
 
         {/* Add to collection */}
         <button
-          onClick={() => setPickerOpen(true)}
+          onClick={() => isGuest ? setAuthPrompt('collection') : setPickerOpen(true)}
           className="mt-4 w-full py-3 rounded-xl text-sm font-semibold border transition-colors hover:bg-muted"
-          style={{ borderColor: 'rgba(255,153,51,0.2)', color: 'var(--saffron)' }}
+          style={{ borderColor: 'rgba(255,153,51,0.2)', color: 'rgb(var(--saffron))' }}
         >
           + Add to Collection
         </button>
       </div>
+
+      {authPrompt && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
+          <div
+            className="w-full max-w-sm rounded-2xl p-5"
+            style={{ background: 'rgb(var(--card))', border: '1px solid rgba(255,153,51,0.2)' }}
+          >
+            <h2 className="font-display text-2xl font-bold text-cream">
+              {authPrompt === 'rating' ? 'Rate this title?' : 'Save this title?'}
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Create a free account to save ratings, build collections, and get better recommendations.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setAuthPrompt(null)}
+                className="flex-1 rounded-xl border px-4 py-3 text-sm font-semibold text-muted-foreground"
+                style={{ borderColor: 'rgba(255,153,51,0.18)' }}
+              >
+                Keep browsing
+              </button>
+              <Link
+                href={`/auth/signup?next=/title/${id}`}
+                className="flex-1 rounded-xl bg-saffron px-4 py-3 text-center text-sm font-semibold text-black"
+              >
+                Create account
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       <CollectionPicker titleId={id} open={pickerOpen} onClose={() => setPickerOpen(false)} />
     </main>

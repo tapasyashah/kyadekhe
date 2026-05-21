@@ -26,6 +26,12 @@ function AppleIcon() {
   )
 }
 
+function getSafeNextPath() {
+  const next = new URLSearchParams(window.location.search).get('next')
+  if (!next || !next.startsWith('/') || next.startsWith('//')) return null
+  return next
+}
+
 export default function LoginPage() {
   const router = useRouter()
   const [email, setEmail] = useState('')
@@ -50,13 +56,14 @@ export default function LoginPage() {
 
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
+      const next = getSafeNextPath()
       const { data: profile } = await supabase
         .from('users')
         .select('onboarded')
         .eq('id', user.id)
         .single()
 
-      router.push(profile?.onboarded ? '/discover' : '/onboarding')
+      router.push(profile?.onboarded ? (next ?? '/discover') : '/onboarding')
     }
   }
 
@@ -67,7 +74,7 @@ export default function LoginPage() {
     await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(getSafeNextPath() ?? '/discover')}`,
       },
     })
     setSocialLoading(null)
@@ -142,7 +149,7 @@ export default function LoginPage() {
           <Button
             type="submit"
             className="w-full font-semibold"
-            style={{ background: 'var(--saffron)', color: '#0E0A0B' }}
+            style={{ background: 'rgb(var(--saffron))', color: '#0E0A0B' }}
             disabled={loading || socialLoading !== null}
           >
             {loading ? 'Signing in...' : 'Sign In'}

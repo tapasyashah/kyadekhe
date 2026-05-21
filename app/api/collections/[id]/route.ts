@@ -7,7 +7,12 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { data: col } = await supabase.from('collections').select('*').eq('id', params.id).single()
+    const { data: col } = await supabase
+      .from('collections')
+      .select('*')
+      .eq('id', params.id)
+      .eq('user_id', user.id)
+      .single()
     if (!col) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const { data: items } = await supabase
@@ -31,6 +36,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
     const body = await request.json() as { titleId?: string; note?: string }
     if (!body.titleId) return NextResponse.json({ error: 'titleId required' }, { status: 400 })
+
+    const { data: col } = await supabase
+      .from('collections')
+      .select('id')
+      .eq('id', params.id)
+      .eq('user_id', user.id)
+      .single()
+    if (!col) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const { error } = await supabase.from('collection_items').upsert({
       collection_id: params.id,

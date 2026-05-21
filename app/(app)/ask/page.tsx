@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { createClient } from '@/lib/supabase/client'
 import type { Tables } from '@/lib/supabase/types'
 
 interface AskResult {
@@ -27,12 +28,22 @@ export default function AskPage() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<AskResult | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [needsAccount, setNeedsAccount] = useState(false)
 
   async function ask() {
     if (!query.trim()) return
     setLoading(true)
     setError(null)
     setResult(null)
+    setNeedsAccount(false)
+
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setNeedsAccount(true)
+      setLoading(false)
+      return
+    }
 
     const res = await fetch('/api/ask', {
       method: 'POST',
@@ -40,7 +51,9 @@ export default function AskPage() {
       body: JSON.stringify({ query }),
     })
 
-    if (!res.ok) {
+    if (res.status === 401) {
+      setNeedsAccount(true)
+    } else if (!res.ok) {
       setError('Something went wrong. Try again.')
     } else {
       setResult(await res.json() as AskResult)
@@ -69,7 +82,7 @@ export default function AskPage() {
           onClick={ask}
           disabled={loading || !query.trim()}
           className="w-full font-semibold"
-          style={{ background: 'var(--saffron)', color: '#0E0A0B' }}
+          style={{ background: 'rgb(var(--saffron))', color: '#0E0A0B' }}
         >
           {loading ? 'Asking...' : 'Find it'}
         </Button>
@@ -85,7 +98,7 @@ export default function AskPage() {
                 key={ex}
                 onClick={() => setQuery(ex)}
                 className="text-xs px-3 py-1.5 rounded-full border transition-colors hover:bg-muted"
-                style={{ borderColor: 'rgba(255,153,51,0.2)', color: 'var(--muted-foreground)' }}
+                style={{ borderColor: 'rgba(255,153,51,0.2)', color: 'rgb(var(--muted-foreground))' }}
               >
                 {ex}
               </button>
@@ -95,6 +108,21 @@ export default function AskPage() {
       )}
 
       {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+
+      {needsAccount && (
+        <div className="mt-5 rounded-xl p-4" style={{ background: 'rgba(255,153,51,0.08)', border: '1px solid rgba(255,153,51,0.2)' }}>
+          <p className="text-sm text-cream font-semibold">Create an account to use Ask KyaDekhe.</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Ask uses your taste profile, ratings, and Claude-powered matching to find better picks.
+          </p>
+          <Link
+            href="/auth/signup?next=/ask"
+            className="mt-3 inline-flex rounded-full bg-saffron px-4 py-2 text-xs font-semibold text-black"
+          >
+            Create account
+          </Link>
+        </div>
+      )}
 
       {/* Results */}
       {result && (
@@ -114,7 +142,7 @@ export default function AskPage() {
                   key={item.title.id}
                   href={`/title/${item.title.id}`}
                   className="flex gap-4 p-3 rounded-xl hover:bg-muted transition-colors"
-                  style={{ background: 'var(--card)', border: '1px solid rgba(255,153,51,0.08)' }}
+                  style={{ background: 'rgb(var(--card))', border: '1px solid rgba(255,153,51,0.08)' }}
                 >
                   <div className="relative w-14 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
                     {item.title.poster_path ? (
@@ -138,7 +166,7 @@ export default function AskPage() {
                       <p className="text-xs mt-0.5" style={{ color: '#F5C518' }}>★ {Number(item.title.imdb_rating).toFixed(1)}</p>
                     )}
                     {!!item.tags?.['emotional_weight'] && (
-                      <span className="inline-block text-xs mt-1 px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,153,51,0.1)', color: 'var(--saffron)' }}>
+                      <span className="inline-block text-xs mt-1 px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,153,51,0.1)', color: 'rgb(var(--saffron))' }}>
                         {String(item.tags['emotional_weight'])}
                       </span>
                     )}

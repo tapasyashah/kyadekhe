@@ -54,8 +54,8 @@ export default function MoodPage() {
             onClick={() => selectMood(mood.id)}
             className="flex flex-col items-start p-4 rounded-xl border transition-all text-left"
             style={{
-              background: selected === mood.id ? 'rgba(255,153,51,0.1)' : 'var(--card)',
-              borderColor: selected === mood.id ? 'var(--saffron)' : 'rgba(255,153,51,0.1)',
+              background: selected === mood.id ? 'rgba(255,153,51,0.1)' : 'rgb(var(--card))',
+              borderColor: selected === mood.id ? 'rgb(var(--saffron))' : 'rgba(255,153,51,0.1)',
             }}
           >
             <span className="text-3xl mb-2">{mood.emoji}</span>
@@ -87,7 +87,7 @@ export default function MoodPage() {
                   key={item.title.id}
                   href={`/title/${item.title.id}`}
                   className="flex gap-4 p-3 rounded-xl hover:bg-muted transition-colors"
-                  style={{ background: 'var(--card)', border: '1px solid rgba(255,153,51,0.08)' }}
+                  style={{ background: 'rgb(var(--card))', border: '1px solid rgba(255,153,51,0.08)' }}
                 >
                   <div className="relative w-14 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
                     {item.title.poster_path ? (
@@ -116,7 +116,7 @@ export default function MoodPage() {
                       </p>
                     )}
                     {!!item.tags?.['emotional_weight'] && (
-                      <span className="inline-block text-xs mt-1.5 px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,153,51,0.1)', color: 'var(--saffron)' }}>
+                      <span className="inline-block text-xs mt-1.5 px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,153,51,0.1)', color: 'rgb(var(--saffron))' }}>
                         {String(item.tags['emotional_weight'])}
                       </span>
                     )}

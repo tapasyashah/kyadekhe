@@ -99,14 +99,14 @@ export default function OnboardingPage() {
         <div className="h-1 rounded-full bg-muted overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-500"
-            style={{ width: `${progress}%`, background: 'var(--saffron)' }}
+            style={{ width: `${progress}%`, background: 'rgb(var(--saffron))' }}
           />
         </div>
         <p className="text-xs text-muted-foreground mt-2">Tell us how you feel about these films to personalise your picks</p>
       </div>
 
       {/* Card */}
-      <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: 'var(--card)', border: '1px solid rgba(255,153,51,0.15)' }}>
+      <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: 'rgb(var(--card))', border: '1px solid rgba(255,153,51,0.15)' }}>
         {/* Poster */}
         <div className="relative aspect-[2/3]">
           {current.poster_path ? (

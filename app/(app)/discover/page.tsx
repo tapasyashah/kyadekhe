@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { SwipeCard } from '@/components/swipe-card'
 import { createClient } from '@/lib/supabase/client'
@@ -15,10 +15,12 @@ interface RecommendedTitle {
 
 const LANGUAGES = ['All', 'Hindi', 'Gujarati'] as const
 type Language = typeof LANGUAGES[number]
+type AuthPrompt = 'save' | null
 
 const SWIPE_HINT_KEY = 'kyadekhe_swipe_hint_seen'
 
 export default function DiscoverPage() {
+  const seenTitleIdsRef = useRef<Set<string>>(new Set())
   const [stack, setStack] = useState<RecommendedTitle[]>([])
   const [loading, setLoading] = useState(true)
   const [region, setRegion] = useState('IN')
@@ -26,6 +28,8 @@ export default function DiscoverPage() {
   const [language, setLanguage] = useState<Language>('All')
   const [showHint, setShowHint] = useState(false)
   const [isGuest, setIsGuest] = useState(false)
+  const [authPrompt, setAuthPrompt] = useState<AuthPrompt>(null)
+  const [hasMore, setHasMore] = useState(true)
 
   useEffect(() => {
     try {
@@ -57,17 +61,29 @@ export default function DiscoverPage() {
 
   const fetchMore = useCallback(async () => {
     setLoading(true)
-    const params = new URLSearchParams({ limit: '10' })
+    const params = new URLSearchParams({ limit: '12' })
     if (language !== 'All') params.set('language', language)
+    const exclude = Array.from(seenTitleIdsRef.current).slice(-100)
+    if (exclude.length > 0) params.set('exclude', exclude.join(','))
+
     const res = await fetch(`/api/recommendations?${params}`)
     if (res.ok) {
       const data = await res.json() as RecommendedTitle[]
-      setStack((prev) => [...prev, ...data])
+      if (data.length === 0) setHasMore(false)
+      setStack((prev) => {
+        const existingIds = new Set(prev.map((item) => item.title.id))
+        const fresh = data.filter((item) => !existingIds.has(item.title.id) && !seenTitleIdsRef.current.has(item.title.id))
+        return [...prev, ...fresh]
+      })
+    } else {
+      setHasMore(false)
     }
     setLoading(false)
   }, [language])
 
   useEffect(() => {
+    seenTitleIdsRef.current.clear()
+    setHasMore(true)
     setStack([])
     fetchMore()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -75,12 +91,17 @@ export default function DiscoverPage() {
 
   // When stack runs low, fetch more
   useEffect(() => {
-    if (stack.length < 3 && !loading) fetchMore()
-  }, [stack.length, loading, fetchMore])
+    if (stack.length < 3 && !loading && hasMore) fetchMore()
+  }, [stack.length, loading, hasMore, fetchMore])
 
   async function handleSwipe(index: number, rating: 'loved' | 'liked' | 'skip', action: string) {
     const item = stack[index]
     if (!item) return
+    const titleId = item.title.id
+
+    seenTitleIdsRef.current.add(titleId)
+    setStack((prev) => prev.filter((candidate) => candidate.title.id !== titleId))
+    setSwiped((n) => n + 1)
 
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -89,28 +110,29 @@ export default function DiscoverPage() {
     await Promise.all([
       supabase.from('ratings').upsert({
         user_id: user.id,
-        title_id: item.title.id,
+        title_id: titleId,
         rating,
       }, { onConflict: 'user_id,title_id' }),
       supabase.from('recommendation_log').insert({
         user_id: user.id,
-        title_id: item.title.id,
+        title_id: titleId,
         action,
         reason_tags: [],
       }),
     ])
-
-    setStack((prev) => prev.filter((_, i) => i !== index))
-    setSwiped((n) => n + 1)
   }
 
   async function handleSwipeUp(index: number) {
     const item = stack[index]
     if (!item) return
+    const titleId = item.title.id
 
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
+    if (!user) {
+      setAuthPrompt('save')
+      return
+    }
 
     // Add to Watch Next collection
     const { data: watchNext } = await supabase
@@ -120,14 +142,30 @@ export default function DiscoverPage() {
       .eq('name', 'Watch Next')
       .single()
 
-    if (watchNext) {
+    let collectionId = watchNext?.id
+    if (!collectionId) {
+      const { data: created } = await supabase
+        .from('collections')
+        .insert({
+          user_id: user.id,
+          name: 'Watch Next',
+          emoji: '🎬',
+          description: 'Films and series to watch soon',
+        })
+        .select('id')
+        .single()
+      collectionId = created?.id
+    }
+
+    if (collectionId) {
       await supabase.from('collection_items').upsert({
-        collection_id: watchNext.id,
-        title_id: item.title.id,
+        collection_id: collectionId,
+        title_id: titleId,
       }, { onConflict: 'collection_id,title_id', ignoreDuplicates: true })
     }
 
-    setStack((prev) => prev.filter((_, i) => i !== index))
+    seenTitleIdsRef.current.add(titleId)
+    setStack((prev) => prev.filter((candidate) => candidate.title.id !== titleId))
     setSwiped((n) => n + 1)
   }
 
@@ -188,7 +226,7 @@ export default function DiscoverPage() {
       {/* Guest banner */}
       {isGuest && (
         <div
-          className="mx-5 mt-6 mb-2 rounded-xl px-4 py-3 flex items-center justify-between gap-3 text-sm"
+          className="mx-5 mt-4 mb-2 rounded-xl px-4 py-3 flex items-center justify-between gap-3 text-sm"
           style={{ background: 'rgba(255,153,51,0.08)', border: '1px solid rgba(255,153,51,0.2)' }}
         >
           <span className="text-muted-foreground text-xs leading-snug">
@@ -197,17 +235,48 @@ export default function DiscoverPage() {
           <Link
             href="/auth/signup"
             className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold text-black"
-            style={{ background: 'var(--saffron)' }}
+            style={{ background: 'rgb(var(--saffron))' }}
           >
             Sign up
           </Link>
         </div>
       )}
 
+      {/* Account prompt */}
+      {authPrompt && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
+          <div
+            className="w-full max-w-sm rounded-2xl p-5"
+            style={{ background: 'rgb(var(--card))', border: '1px solid rgba(255,153,51,0.2)' }}
+          >
+            <h2 className="font-display text-2xl font-bold text-cream">Save this pick?</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              Create a free account to keep a Watch Next list and turn your swipes into better recommendations.
+            </p>
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setAuthPrompt(null)}
+                className="flex-1 rounded-xl border px-4 py-3 text-sm font-semibold text-muted-foreground"
+                style={{ borderColor: 'rgba(255,153,51,0.18)' }}
+              >
+                Keep browsing
+              </button>
+              <Link
+                href="/auth/signup?next=/discover"
+                className="flex-1 rounded-xl bg-saffron px-4 py-3 text-center text-sm font-semibold text-black"
+              >
+                Create account
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between px-5 pt-6 pb-4">
         <h1 className="font-display text-2xl font-bold text-saffron">KyaDekhe</h1>
-        <span className="text-xs text-muted-foreground">{swiped} rated</span>
+        <span className="text-xs text-muted-foreground">{swiped} swiped</span>
       </div>
 
       {/* Language filter chips */}
@@ -235,7 +304,10 @@ export default function DiscoverPage() {
       </div>
 
       {/* Card stack */}
-      <div className="flex-1 relative w-full max-w-[400px] mx-auto px-5">
+      <div
+        className="relative mx-auto w-full max-w-[400px] px-5 pb-3"
+        style={{ height: 'clamp(380px, calc(100svh - 320px), 560px)' }}
+      >
         {stack.slice(0, 4).map((item, i) => (
           <div
             key={item.title.id}

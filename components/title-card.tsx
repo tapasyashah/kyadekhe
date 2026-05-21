@@ -29,7 +29,7 @@ export function TitleCard({ title, tags, streaming = [], region = 'IN' }: TitleC
     <Link href={`/title/${title.id}`}>
       <div
         className="rounded-xl overflow-hidden cursor-pointer transition-transform hover:scale-[1.02] group"
-        style={{ background: 'var(--card)', border: '1px solid rgba(255,153,51,0.1)' }}
+        style={{ background: 'rgb(var(--card))', border: '1px solid rgba(255,153,51,0.1)' }}
       >
         {/* Poster */}
         <div className="relative aspect-[2/3] bg-muted">
@@ -77,7 +77,7 @@ export function TitleCard({ title, tags, streaming = [], region = 'IN' }: TitleC
                 </span>
               )}
               {era && (
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: 'rgba(212,175,55,0.1)', color: 'var(--gold)', border: '1px solid rgba(212,175,55,0.2)' }}>
+                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium" style={{ background: 'rgba(212,175,55,0.1)', color: 'rgb(var(--gold))', border: '1px solid rgba(212,175,55,0.2)' }}>
                   {era}
                 </span>
               )}

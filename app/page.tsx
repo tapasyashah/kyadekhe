@@ -54,7 +54,7 @@ export default function LandingPage() {
         <Link
           href="/auth/signup"
           className={cn(buttonVariants({ size: 'lg' }), 'text-base px-8 font-semibold')}
-          style={{ background: 'var(--saffron)', color: '#0E0A0B' }}
+          style={{ background: 'rgb(var(--saffron))', color: '#0E0A0B' }}
         >
           Start Discovering
         </Link>

@@ -19,10 +19,18 @@ export default function CollectionDetailPage() {
   const [collection, setCollection] = useState<Tables<'collections'> | null>(null)
   const [items, setItems] = useState<CollectionItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [isGuest, setIsGuest] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
     async function load() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setIsGuest(true)
+        setLoading(false)
+        return
+      }
+
       const [{ data: col }, { data: its }] = await Promise.all([
         supabase.from('collections').select('*').eq('id', id).single(),
         supabase.from('collection_items').select('id, titles(*)').eq('collection_id', id).order('added_at', { ascending: false }),
@@ -41,6 +49,25 @@ export default function CollectionDetailPage() {
   }
 
   if (loading) return <main className="min-h-screen flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></main>
+  if (isGuest) {
+    return (
+      <main className="min-h-screen px-4 pt-10">
+        <Link href="/discover" className="text-xs text-muted-foreground mb-4 block">← Discover</Link>
+        <div className="rounded-xl p-5" style={{ background: 'rgba(255,153,51,0.08)', border: '1px solid rgba(255,153,51,0.2)' }}>
+          <p className="text-sm font-semibold text-cream">Create an account to view saved lists.</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+            Your Watch Next and collections stay private and synced after sign in.
+          </p>
+          <Link
+            href="/auth/signup?next=/collections"
+            className="mt-4 inline-flex rounded-full bg-saffron px-4 py-2 text-xs font-semibold text-black"
+          >
+            Create account
+          </Link>
+        </div>
+      </main>
+    )
+  }
   if (!collection) return <main className="min-h-screen flex items-center justify-center"><p className="text-muted-foreground">Not found.</p></main>
 
   return (
@@ -64,7 +91,7 @@ export default function CollectionDetailPage() {
           {items.map((item) => (
             <div key={item.id} className="relative group">
               <Link href={`/title/${item.title.id}`}>
-                <div className="rounded-xl overflow-hidden" style={{ background: 'var(--card)' }}>
+                <div className="rounded-xl overflow-hidden" style={{ background: 'rgb(var(--card))' }}>
                   <div className="relative aspect-[2/3] bg-muted">
                     {item.title.poster_path ? (
                       <Image src={`${TMDB_IMAGE_BASE}${item.title.poster_path}`} alt={item.title.title} fill className="object-cover" sizes="180px" />

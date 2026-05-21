@@ -27,7 +27,7 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-lg transition-colors"
-              style={{ color: isActive ? 'var(--saffron)' : 'var(--muted-foreground)' }}
+              style={{ color: isActive ? 'rgb(var(--saffron))' : 'rgb(var(--muted-foreground))' }}
             >
               <span className="text-xl leading-none">{item.icon}</span>
               <span className="text-[10px] font-medium">{item.label}</span>
