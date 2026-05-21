@@ -44,11 +44,11 @@ export async function GET(request: Request) {
       }
 
       const { data: titles } = await query
-      if (!titles) return NextResponse.json([])
+      if (!titles || titles.length === 0) return NextResponse.json([])
 
       const titleIds = titles.map((t) => t.id)
       const [tagRows, streamingRows] = await Promise.all([
-        supabase.from('title_tags').select('title_id, tags').in('title_id', titleIds),
+        supabase.from('title_tags').select('title_id, tags').in('title_id', titleIds).limit(titleIds.length),
         supabase.from('streaming_availability').select('*').in('title_id', titleIds).eq('region', 'IN'),
       ])
 

@@ -28,16 +28,20 @@ export default function DiscoverPage() {
   const [isGuest, setIsGuest] = useState(false)
 
   useEffect(() => {
-    const supabase = createClient()
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) {
-        setIsGuest(true)
-        return
-      }
-      supabase.from('users').select('region').eq('id', user.id).single().then(({ data }) => {
-        if (data?.region) setRegion(data.region)
-      })
-    })
+    try {
+      const supabase = createClient()
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) {
+          setIsGuest(true)
+          return
+        }
+        supabase.from('users').select('region').eq('id', user.id).single().then(({ data }) => {
+          if (data?.region) setRegion(data.region)
+        })
+      }).catch(() => setIsGuest(true))
+    } catch {
+      setIsGuest(true)
+    }
   }, [])
 
   useEffect(() => {
