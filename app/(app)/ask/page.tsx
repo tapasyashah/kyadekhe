@@ -53,7 +53,7 @@ export default function AskPage() {
     <main className="min-h-screen px-4 pt-10">
       <h1 className="font-display text-2xl font-bold text-saffron mb-1">Ask KyaDekhe</h1>
       <p className="text-sm text-muted-foreground mb-5">
-        Ask in plain language — we&apos;ll find it.
+        Ask in plain language. We&apos;ll find it.
       </p>
 
       {/* Input */}

@@ -23,7 +23,7 @@ export default function LandingPage() {
 
       {/* Tagline */}
       <p className="relative z-10 text-xl sm:text-2xl text-cream max-w-xl leading-relaxed mb-4">
-        Discover Hindi films and series you haven&apos;t seen — intelligently.
+        Your guide to Indian cinema. Bollywood, Gujarati, and everything in between.
       </p>
       <p className="relative z-10 text-sm text-muted-foreground max-w-md mb-10">
         Not just &ldquo;you liked a thriller, here&apos;s another thriller.&rdquo; We understand{' '}
@@ -33,9 +33,9 @@ export default function LandingPage() {
       {/* Features */}
       <div className="relative z-10 grid grid-cols-1 sm:grid-cols-3 gap-4 mb-12 max-w-2xl w-full">
         {[
-          { emoji: '🎴', title: 'Swipe to Discover', desc: 'Rate films you know. Get recommendations you haven\'t seen.' },
-          { emoji: '🎭', title: 'Mood-Based Picks', desc: 'Sunday afternoon vibes? NRI feelings? We match the context.' },
-          { emoji: '💬', title: 'Ask KyaDekhe', desc: '"Like Dil Chahta Hai but grittier." We find it.' },
+          { emoji: '🎴', title: 'Swipe to Discover', desc: 'Rate films you know. Get Bollywood and Gujarati picks you haven\'t seen.' },
+          { emoji: '🎭', title: 'Mood-Based Picks', desc: 'Diwali vibes? Missing home? Post-breakup feels? We match the moment.' },
+          { emoji: '💬', title: 'Ask KyaDekhe', desc: '"Like Dil Chahta Hai but grittier." Or something Gujarati with heart. We find it.' },
         ].map((f) => (
           <div
             key={f.title}
@@ -66,9 +66,19 @@ export default function LandingPage() {
         </Link>
       </div>
 
+      {/* Guest mode */}
+      <div className="relative z-10 mt-5">
+        <Link
+          href="/discover"
+          className="text-sm text-muted-foreground hover:text-saffron transition-colors underline underline-offset-4"
+        >
+          Browse without signing in
+        </Link>
+      </div>
+
       {/* Footer note */}
-      <p className="relative z-10 mt-10 text-xs text-muted-foreground">
-        Built for people who&apos;ve seen every SRK film and want to know what&apos;s next.
+      <p className="relative z-10 mt-8 text-xs text-muted-foreground">
+        Built for people who&apos;ve seen every SRK film and are ready for what&apos;s next.
       </p>
     </main>
   )

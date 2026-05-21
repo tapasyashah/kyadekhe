@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { SwipeCard } from '@/components/swipe-card'
 import { createClient } from '@/lib/supabase/client'
 import type { Tables } from '@/lib/supabase/types'
@@ -24,11 +25,18 @@ export default function DiscoverPage() {
   const [swiped, setSwiped] = useState(0)
   const [language, setLanguage] = useState<Language>('All')
   const [showHint, setShowHint] = useState(false)
+  const [isGuest, setIsGuest] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
-    supabase.from('users').select('region').single().then(({ data }) => {
-      if (data?.region) setRegion(data.region)
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
+        setIsGuest(true)
+        return
+      }
+      supabase.from('users').select('region').eq('id', user.id).single().then(({ data }) => {
+        if (data?.region) setRegion(data.region)
+      })
     })
   }, [])
 
@@ -173,8 +181,27 @@ export default function DiscoverPage() {
         </div>
       )}
 
+      {/* Guest banner */}
+      {isGuest && (
+        <div
+          className="mx-5 mt-6 mb-2 rounded-xl px-4 py-3 flex items-center justify-between gap-3 text-sm"
+          style={{ background: 'rgba(255,153,51,0.08)', border: '1px solid rgba(255,153,51,0.2)' }}
+        >
+          <span className="text-muted-foreground text-xs leading-snug">
+            Sign in to save picks and get personalised recommendations.
+          </span>
+          <Link
+            href="/auth/signup"
+            className="shrink-0 rounded-full px-3 py-1 text-xs font-semibold text-black"
+            style={{ background: 'var(--saffron)' }}
+          >
+            Sign up
+          </Link>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="flex items-center justify-between px-5 pt-10 pb-4">
+      <div className="flex items-center justify-between px-5 pt-6 pb-4">
         <h1 className="font-display text-2xl font-bold text-saffron">KyaDekhe</h1>
         <span className="text-xs text-muted-foreground">{swiped} rated</span>
       </div>

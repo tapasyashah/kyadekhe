@@ -79,7 +79,7 @@ export default function MoodPage() {
               ))}
             </div>
           ) : results.length === 0 ? (
-            <p className="text-muted-foreground text-sm">No matches for this mood yet — rate more films to improve picks.</p>
+            <p className="text-muted-foreground text-sm">No matches for this mood yet. Rate more films to improve your picks.</p>
           ) : (
             <div className="space-y-3">
               {results.map((item) => (

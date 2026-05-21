@@ -6,15 +6,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const supabase = createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  if (!user) redirect('/auth/login')
+  if (user) {
+    const { data: profile } = await supabase
+      .from('users')
+      .select('onboarded, region')
+      .eq('id', user.id)
+      .single()
 
-  const { data: profile } = await supabase
-    .from('users')
-    .select('onboarded, region')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile?.onboarded) redirect('/onboarding')
+    if (!profile?.onboarded) redirect('/onboarding')
+  }
+  // Guests (no user) can access the app directly without auth
 
   return (
     <div className="min-h-screen pb-20">

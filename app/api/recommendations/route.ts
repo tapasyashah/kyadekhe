@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getRecommendations } from '@/lib/recommender'
 import { MOODS } from '@/lib/moods'
+import type { Tables } from '@/lib/supabase/types'
 
 // Simple in-memory rate limit: 20 req/min per user
 // Resets on cold starts — acceptable for a single-instance launch
@@ -25,18 +26,61 @@ export async function GET(request: Request) {
   try {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { searchParams } = new URL(request.url)
+    const limit = Math.min(Number(searchParams.get('limit') ?? 20), 50)
+    const languageFilter = searchParams.get('language') ?? undefined
+
+    if (!user) {
+      // Guest mode: return top-rated titles without personalisation
+      let query = supabase
+        .from('titles')
+        .select('*')
+        .not('imdb_rating', 'is', null)
+        .order('imdb_rating', { ascending: false })
+        .limit(limit)
+
+      if (languageFilter && languageFilter !== 'All') {
+        query = query.eq('language', languageFilter)
+      }
+
+      const { data: titles } = await query
+      if (!titles) return NextResponse.json([])
+
+      const titleIds = titles.map((t) => t.id)
+      const [tagRows, streamingRows] = await Promise.all([
+        supabase.from('title_tags').select('title_id, tags').in('title_id', titleIds),
+        supabase.from('streaming_availability').select('*').in('title_id', titleIds).eq('region', 'IN'),
+      ])
+
+      const tagsByTitleId = new Map<string, Record<string, unknown>>()
+      for (const row of tagRows.data ?? []) {
+        if (row.title_id) tagsByTitleId.set(row.title_id, row.tags as Record<string, unknown>)
+      }
+
+      const streamingByTitleId = new Map<string, Tables<'streaming_availability'>[]>()
+      for (const row of streamingRows.data ?? []) {
+        if (!row.title_id) continue
+        const existing = streamingByTitleId.get(row.title_id) ?? []
+        streamingByTitleId.set(row.title_id, [...existing, row])
+      }
+
+      const results = titles.map((title) => ({
+        title,
+        tags: tagsByTitleId.get(title.id) ?? {},
+        score: Number(title.imdb_rating ?? 0),
+        streaming: streamingByTitleId.get(title.id) ?? [],
+      }))
+
+      return NextResponse.json(results)
+    }
 
     if (isRateLimited(user.id)) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
     }
 
-    const { searchParams } = new URL(request.url)
-    const limit = Math.min(Number(searchParams.get('limit') ?? 20), 50)
     const moodId = searchParams.get('mood')
     const eraFilter = searchParams.get('era') ?? undefined
     const platformFilter = searchParams.get('platform') ?? undefined
-    const languageFilter = searchParams.get('language') ?? undefined
 
     const { data: profile } = await supabase.from('users').select('region').eq('id', user.id).single()
     const region = profile?.region ?? 'IN'
