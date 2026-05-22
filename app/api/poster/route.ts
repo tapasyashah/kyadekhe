@@ -2,6 +2,71 @@ import { NextResponse } from 'next/server'
 
 const TMDB_BASE = 'https://api.themoviedb.org/3'
 const IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
+const LANGUAGE_HINTS: Record<string, string[]> = {
+  hi: ['hi', 'en'],
+  gu: ['gu', 'hi', 'en'],
+}
+
+interface TmdbSearchResult {
+  poster_path: string | null
+  title?: string
+  name?: string
+  original_title?: string
+  original_name?: string
+  release_date?: string
+  first_air_date?: string
+  original_language?: string
+  origin_country?: string[]
+  popularity?: number
+  vote_count?: number
+}
+
+function normalizeTitle(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+}
+
+function resultYear(result: TmdbSearchResult) {
+  const date = result.release_date ?? result.first_air_date
+  return date ? Number(date.slice(0, 4)) : null
+}
+
+function scoreResult(result: TmdbSearchResult, title: string, year: string | null, language: string | null) {
+  if (!result.poster_path) return -100
+
+  const targetTitle = normalizeTitle(title)
+  const names = [result.title, result.name, result.original_title, result.original_name]
+    .filter((value): value is string => !!value)
+    .map(normalizeTitle)
+
+  let score = 0
+  if (names.includes(targetTitle)) score += 60
+  else if (names.some((name) => name.startsWith(targetTitle) || targetTitle.startsWith(name))) score += 24
+  else return -100
+
+  const targetYear = year ? Number(year) : null
+  const foundYear = resultYear(result)
+  if (targetYear && foundYear) {
+    const delta = Math.abs(targetYear - foundYear)
+    if (delta === 0) score += 30
+    else if (delta <= 3) score += 16
+    else return -100
+  }
+
+  const languageHints = language ? LANGUAGE_HINTS[language] ?? [language] : []
+  if (languageHints.length > 0) {
+    if (result.original_language && languageHints.includes(result.original_language)) score += 18
+    else score -= 12
+  }
+
+  if (result.origin_country?.includes('IN')) score += 8
+  score += Math.min(8, (result.vote_count ?? 0) / 100)
+  score += Math.min(4, (result.popularity ?? 0) / 20)
+  return score
+}
 
 function fallbackPoster(title: string) {
   const safeTitle = title
@@ -26,7 +91,7 @@ function fallbackPoster(title: string) {
 </svg>`
 }
 
-async function tmdbSearch(title: string, year: string | null, type: string | null) {
+async function tmdbSearch(title: string, year: string | null, type: string | null, language: string | null) {
   const apiKey = process.env.TMDB_API_KEY
   const readToken = process.env.TMDB_READ_ACCESS_TOKEN
   if (!apiKey && !readToken) return null
@@ -35,8 +100,6 @@ async function tmdbSearch(title: string, year: string | null, type: string | nul
   const url = new URL(`${TMDB_BASE}/search/${mediaType}`)
   url.searchParams.set('query', title)
   url.searchParams.set('include_adult', 'false')
-  if (year && mediaType === 'movie') url.searchParams.set('year', year)
-  if (year && mediaType === 'tv') url.searchParams.set('first_air_date_year', year)
   if (apiKey) url.searchParams.set('api_key', apiKey)
 
   const res = await fetch(url, {
@@ -45,8 +108,13 @@ async function tmdbSearch(title: string, year: string | null, type: string | nul
   })
   if (!res.ok) return null
 
-  const data = await res.json() as { results?: Array<{ poster_path: string | null }> }
-  return data.results?.find((result) => result.poster_path)?.poster_path ?? null
+  const data = await res.json() as { results?: TmdbSearchResult[] }
+  const best = (data.results ?? [])
+    .map((result) => ({ result, score: scoreResult(result, title, year, language) }))
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)[0]
+
+  return best?.result.poster_path ?? null
 }
 
 export async function GET(request: Request) {
@@ -54,8 +122,9 @@ export async function GET(request: Request) {
   const title = searchParams.get('title')?.trim() || 'KyaDekhe'
   const year = searchParams.get('year')
   const type = searchParams.get('type')
+  const language = searchParams.get('language')
 
-  const posterPath = await tmdbSearch(title, year, type).catch(() => null)
+  const posterPath = await tmdbSearch(title, year, type, language).catch(() => null)
   if (posterPath) {
     return NextResponse.redirect(`${IMAGE_BASE}${posterPath}`, {
       headers: { 'Cache-Control': 'public, s-maxage=2592000, stale-while-revalidate=604800' },

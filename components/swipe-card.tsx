@@ -1,6 +1,7 @@
 'use client'
 
 import { motion, useMotionValue, useTransform, type PanInfo } from 'framer-motion'
+import Link from 'next/link'
 import type { Tables } from '@/lib/supabase/types'
 import { StreamingPills } from '@/components/streaming-pills'
 import { PosterImage } from '@/components/poster-image'
@@ -11,6 +12,7 @@ interface SwipeCardProps {
   streaming?: Tables<'streaming_availability'>[]
   region?: string
   isTop: boolean
+  isSaved?: boolean
   onLike: () => void
   onLove: () => void
   onHate: () => void
@@ -29,7 +31,7 @@ const EMOTIONAL_WEIGHT_COLORS: Record<string, string> = {
 
 export function SwipeCard({
   title, tags, streaming = [], region = 'IN',
-  isTop, onLike, onLove, onHate, onSave,
+  isTop, isSaved = false, onLike, onLove, onHate, onSave,
 }: SwipeCardProps) {
   const x = useMotionValue(0)
   const y = useMotionValue(0)
@@ -65,7 +67,7 @@ export function SwipeCard({
       whileTap={{ scale: 1.02 }}
     >
       {/* Card */}
-      <div className="relative h-full rounded-2xl overflow-hidden select-none"
+      <div className="relative h-full overflow-hidden rounded-[18px] select-none"
         style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }}>
 
         {/* Poster */}
@@ -100,12 +102,12 @@ export function SwipeCard({
         </motion.div>
 
         {/* Bottom content */}
-        <div className="absolute bottom-0 left-0 right-0 p-5 space-y-2">
+        <div className="absolute bottom-0 left-0 right-0 space-y-2 p-4 sm:p-5">
           {/* Streaming */}
           <StreamingPills streaming={streaming} region={region} />
 
           {/* Title */}
-          <h2 className="font-display text-2xl font-bold text-cream leading-tight">
+          <h2 className="font-display text-[1.65rem] font-bold text-cream leading-tight">
             {title.title}
           </h2>
 
@@ -150,17 +152,30 @@ export function SwipeCard({
               {title.overview}
             </p>
           )}
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation()
-              onSave()
-            }}
-            className="mt-1 rounded-full border px-3 py-1 text-xs font-semibold text-cream/80"
-            style={{ borderColor: 'rgba(255,248,231,0.25)', background: 'rgba(14,10,11,0.35)' }}
-          >
-            Save for later
-          </button>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Link
+              href={`/title/${title.id}`}
+              onClick={(event) => event.stopPropagation()}
+              className="rounded-full border px-3 py-1.5 text-xs font-semibold text-cream/90"
+              style={{ borderColor: 'rgba(255,153,51,0.35)', background: 'rgba(14,10,11,0.45)' }}
+            >
+              More details
+            </Link>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onSave()
+              }}
+              className="rounded-full border px-3 py-1.5 text-xs font-semibold text-cream/85"
+              style={{
+                borderColor: isSaved ? 'rgba(34,197,94,0.55)' : 'rgba(255,248,231,0.25)',
+                background: isSaved ? 'rgba(22,101,52,0.28)' : 'rgba(14,10,11,0.45)',
+              }}
+            >
+              {isSaved ? 'Saved' : 'Save for later'}
+            </button>
+          </div>
         </div>
       </div>
     </motion.div>

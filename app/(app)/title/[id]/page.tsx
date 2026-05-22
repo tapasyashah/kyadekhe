@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { PosterImage } from '@/components/poster-image'
 import { StreamingPills } from '@/components/streaming-pills'
 import { CollectionPicker } from '@/components/collection-picker'
-import { rateGuestTitle } from '@/lib/guest-taste'
+import { rateGuestTitle, saveGuestTitle } from '@/lib/guest-taste'
 import { backdropSrc } from '@/lib/poster'
 import type { Tables } from '@/lib/supabase/types'
 
@@ -17,13 +16,12 @@ export default function TitlePage() {
   const [tags, setTags] = useState<Record<string, unknown> | null>(null)
   const [streaming, setStreaming] = useState<Tables<'streaming_availability'>[]>([])
   const [why, setWhy] = useState<string | null>(null)
-  const [similar, setSimilar] = useState<Tables<'titles'>[]>([])
   const [region, setRegion] = useState('IN')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [rating, setRating] = useState<string | null>(null)
   const [isGuest, setIsGuest] = useState(false)
-  const [authPrompt, setAuthPrompt] = useState<'collection' | null>(null)
+  const [savedNotice, setSavedNotice] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -80,6 +78,13 @@ export default function TitlePage() {
     if (!title) return
     await supabase.from('ratings').upsert({ user_id: user.id, title_id: title.id, rating: r }, { onConflict: 'user_id,title_id' })
     setRating(r)
+  }
+
+  function saveTitleForLater() {
+    if (!title) return
+    saveGuestTitle(title)
+    setSavedNotice('Saved for later')
+    window.setTimeout(() => setSavedNotice(null), 2200)
   }
 
   if (loading) return <main className="min-h-screen flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></main>
@@ -187,43 +192,17 @@ export default function TitlePage() {
 
         {/* Add to collection */}
         <button
-          onClick={() => isGuest ? setAuthPrompt('collection') : setPickerOpen(true)}
+          onClick={() => isGuest ? saveTitleForLater() : setPickerOpen(true)}
           className="mt-4 w-full py-3 rounded-xl text-sm font-semibold border transition-colors hover:bg-muted"
           style={{ borderColor: 'rgba(255,153,51,0.2)', color: 'rgb(var(--saffron))' }}
         >
-          + Add to Collection
+          Save for later
         </button>
       </div>
 
-      {authPrompt && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
-          <div
-            className="w-full max-w-sm rounded-2xl p-5"
-            style={{ background: 'rgb(var(--card))', border: '1px solid rgba(255,153,51,0.2)' }}
-          >
-            <h2 className="font-display text-2xl font-bold text-cream">
-              Save this title?
-            </h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Create a free account to save ratings, build collections, and get better recommendations.
-            </p>
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setAuthPrompt(null)}
-                className="flex-1 rounded-xl border px-4 py-3 text-sm font-semibold text-muted-foreground"
-                style={{ borderColor: 'rgba(255,153,51,0.18)' }}
-              >
-                Keep browsing
-              </button>
-              <Link
-                href={`/auth/signup?next=/title/${id}`}
-                className="flex-1 rounded-xl bg-saffron px-4 py-3 text-center text-sm font-semibold text-black"
-              >
-                Create account
-              </Link>
-            </div>
-          </div>
+      {savedNotice && (
+        <div className="fixed left-4 right-4 top-16 z-50 mx-auto max-w-sm rounded-full border px-4 py-2 text-center text-sm font-semibold text-cream shadow-2xl" style={{ background: 'rgba(22,101,52,0.92)', borderColor: 'rgba(34,197,94,0.4)' }}>
+          {savedNotice}
         </div>
       )}
 

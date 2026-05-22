@@ -3,7 +3,7 @@ import type { Tables } from '@/lib/supabase/types'
 import { posterSrc } from '@/lib/poster'
 
 interface PosterImageProps {
-  title: Pick<Tables<'titles'>, 'poster_path' | 'title' | 'year' | 'title_type'>
+  title: Pick<Tables<'titles'>, 'poster_path' | 'title' | 'year' | 'title_type' | 'language'>
   className?: string
   sizes: string
   priority?: boolean

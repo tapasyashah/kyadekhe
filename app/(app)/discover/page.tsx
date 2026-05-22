@@ -4,7 +4,14 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { SwipeCard } from '@/components/swipe-card'
 import { createClient } from '@/lib/supabase/client'
-import { encodeGuestTaste, rateGuestTitle, readGuestTaste, type GuestRating } from '@/lib/guest-taste'
+import {
+  encodeGuestTaste,
+  rateGuestTitle,
+  readGuestSavedTitles,
+  readGuestTaste,
+  saveGuestTitle,
+  type GuestRating,
+} from '@/lib/guest-taste'
 import type { Tables } from '@/lib/supabase/types'
 
 interface RecommendedTitle {
@@ -18,6 +25,7 @@ const LANGUAGES = ['All', 'Hindi', 'Gujarati'] as const
 type Language = typeof LANGUAGES[number]
 
 const SWIPE_HINT_KEY = 'kyadekhe_swipe_hint_seen'
+const LANGUAGE_PREF_KEY = 'kyadekhe_language_pref'
 
 export default function DiscoverPage() {
   const seenTitleIdsRef = useRef<Set<string>>(new Set())
@@ -27,13 +35,19 @@ export default function DiscoverPage() {
   const [swiped, setSwiped] = useState(0)
   const [language, setLanguage] = useState<Language>('All')
   const [showHint, setShowHint] = useState(false)
-  const [authPrompt, setAuthPrompt] = useState(false)
   const [hasMore, setHasMore] = useState(true)
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
+  const [savedNotice, setSavedNotice] = useState<string | null>(null)
 
   useEffect(() => {
     const taste = readGuestTaste()
     seenTitleIdsRef.current = new Set(taste.map((entry) => entry.titleId))
     setSwiped(taste.length)
+    setSavedIds(new Set(readGuestSavedTitles().map((entry) => entry.title.id)))
+    const storedLanguage = localStorage.getItem(LANGUAGE_PREF_KEY)
+    if (storedLanguage === 'All' || storedLanguage === 'Hindi' || storedLanguage === 'Gujarati') {
+      setLanguage(storedLanguage)
+    }
     if (!localStorage.getItem(SWIPE_HINT_KEY)) setShowHint(true)
 
     const supabase = createClient()
@@ -48,6 +62,11 @@ export default function DiscoverPage() {
   function dismissHint() {
     localStorage.setItem(SWIPE_HINT_KEY, '1')
     setShowHint(false)
+  }
+
+  function chooseLanguage(nextLanguage: Language) {
+    setLanguage(nextLanguage)
+    localStorage.setItem(LANGUAGE_PREF_KEY, nextLanguage)
   }
 
   const fetchMore = useCallback(async () => {
@@ -130,7 +149,10 @@ export default function DiscoverPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      setAuthPrompt(true)
+      saveGuestTitle(item.title)
+      setSavedIds((prev) => new Set([...Array.from(prev), titleId]))
+      setSavedNotice(`Saved ${item.title.title} for later`)
+      window.setTimeout(() => setSavedNotice(null), 2200)
       return
     }
 
@@ -161,6 +183,8 @@ export default function DiscoverPage() {
         collection_id: collectionId,
         title_id: titleId,
       }, { onConflict: 'collection_id,title_id', ignoreDuplicates: true })
+      setSavedNotice(`Saved ${item.title.title} for later`)
+      window.setTimeout(() => setSavedNotice(null), 2200)
     }
   }
 
@@ -194,10 +218,11 @@ export default function DiscoverPage() {
         >
           <div className="text-5xl">👋</div>
           <h2 className="font-display text-2xl font-bold text-cream">Tune your picks</h2>
-          <div className="flex flex-col gap-3 text-sm text-muted-foreground">
-            <div className="flex items-center gap-3"><span className="text-2xl">←</span><span>Pass when it is not for you</span></div>
-            <div className="flex items-center gap-3"><span className="text-2xl">→</span><span>Like when you might watch it</span></div>
-            <div className="flex items-center gap-3"><span className="text-2xl">↑</span><span>Love when it feels perfect</span></div>
+          <div className="flex flex-col gap-3 text-left text-sm text-muted-foreground">
+            <div className="flex items-center gap-3"><span className="w-10 text-2xl">←</span><span>Pass titles you would not watch tonight.</span></div>
+            <div className="flex items-center gap-3"><span className="w-10 text-2xl">Save</span><span>Keep a maybe-list without creating an account.</span></div>
+            <div className="flex items-center gap-3"><span className="w-10 text-2xl">→</span><span>Like titles that look interesting.</span></div>
+            <div className="flex items-center gap-3"><span className="w-10 text-2xl">↑</span><span>Love titles that feel exactly right.</span></div>
           </div>
           <button className="mt-2 rounded-full bg-saffron px-6 py-2 text-sm font-semibold text-black" onClick={dismissHint}>
             Start swiping
@@ -205,61 +230,58 @@ export default function DiscoverPage() {
         </div>
       )}
 
-      {authPrompt && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
-          <div className="w-full max-w-sm rounded-2xl p-5" style={{ background: 'rgb(var(--card))', border: '1px solid rgba(255,153,51,0.2)' }}>
-            <h2 className="font-display text-2xl font-bold text-cream">Save this pick?</h2>
-            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-              Browsing stays free and anonymous. Create an account only if you want to sync a Watch Next list.
-            </p>
-            <div className="mt-5 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setAuthPrompt(false)}
-                className="flex-1 rounded-xl border px-4 py-3 text-sm font-semibold text-muted-foreground"
-                style={{ borderColor: 'rgba(255,153,51,0.18)' }}
-              >
-                Keep browsing
-              </button>
-              <Link href="/auth/signup?next=/discover" className="flex-1 rounded-xl bg-saffron px-4 py-3 text-center text-sm font-semibold text-black">
-                Create account
-              </Link>
-            </div>
-          </div>
+      {savedNotice && (
+        <div className="fixed left-4 right-4 top-16 z-50 mx-auto max-w-sm rounded-full border px-4 py-2 text-center text-sm font-semibold text-cream shadow-2xl" style={{ background: 'rgba(22,101,52,0.92)', borderColor: 'rgba(34,197,94,0.4)' }}>
+          {savedNotice}
         </div>
       )}
 
-      <div className="flex items-center justify-between px-5 pt-6 pb-4">
+      <div className="flex items-start justify-between gap-5 px-5 pb-3 pt-5">
         <div>
-          <h1 className="font-display text-2xl font-bold text-saffron">KyaDekhe</h1>
-          <p className="text-xs text-muted-foreground">Swipe a few titles, then open one that surprises you.</p>
+          <h1 className="font-display text-[2rem] font-bold leading-none text-saffron">Discover</h1>
+          <p className="mt-1 max-w-[18rem] text-sm leading-snug text-muted-foreground">
+            Pick a mix, swipe a few titles, then open one that looks promising.
+          </p>
         </div>
-        <span className="text-xs text-muted-foreground">{swiped} signals</span>
+        <div className="pt-1 text-right text-xs text-muted-foreground">
+          <p>{swiped} signals</p>
+          <Link href="/collections" className="text-saffron">{savedIds.size} saved</Link>
+        </div>
       </div>
 
-      <div className="flex gap-2 px-5 mb-3">
+      <div className="px-5 pb-3">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">What should we mix in?</p>
+        <div className="grid grid-cols-3 gap-2">
         {LANGUAGES.map((lang) => (
           <button
             key={lang}
-            onClick={() => setLanguage(lang)}
-            className={`rounded-full px-4 py-1 text-xs font-medium transition-colors ${
+            onClick={() => chooseLanguage(lang)}
+            className={`rounded-xl px-3 py-2 text-sm font-semibold transition-colors ${
               language === lang ? 'bg-saffron text-black' : 'bg-muted text-muted-foreground hover:bg-muted/80'
             }`}
           >
-            {lang}
+            {lang === 'All' ? 'Both' : lang}
           </button>
         ))}
+        </div>
       </div>
 
-      <div className="flex justify-center gap-6 text-xs text-muted-foreground px-5 mb-4">
+      <div className="mx-5 mb-3 grid grid-cols-4 gap-1.5 rounded-2xl border p-2 text-center text-[11px] leading-tight text-muted-foreground" style={{ borderColor: 'rgba(255,153,51,0.14)', background: 'rgba(255,153,51,0.045)' }}>
+        <span><b className="block text-cream">Pass</b>not for me</span>
+        <span><b className="block text-cream">Save</b>maybe later</span>
+        <span><b className="block text-cream">Like</b>interesting</span>
+        <span><b className="block text-cream">Love</b>more of this</span>
+      </div>
+
+      <div className="mb-2 flex justify-center gap-5 px-5 text-xs text-muted-foreground">
         <span>← Pass</span>
         <span>↑ Love</span>
         <span>Like →</span>
       </div>
 
       <div
-        className="relative mx-auto w-full max-w-[400px] px-5 pb-3"
-        style={{ height: 'clamp(430px, calc(100svh - 330px), 590px)' }}
+        className="relative mx-auto w-full max-w-[390px] px-5 pb-3"
+        style={{ height: 'clamp(360px, calc(100svh - 390px), 520px)' }}
       >
         {stack.slice(0, 4).map((item, i) => (
           <div
@@ -277,6 +299,7 @@ export default function DiscoverPage() {
               streaming={item.streaming}
               region={region}
               isTop={i === 0}
+              isSaved={savedIds.has(item.title.id)}
               onLike={() => handleSwipe(i, 'liked', 'swiped_like')}
               onLove={() => handleSwipe(i, 'loved', 'swiped_love')}
               onHate={() => handleSwipe(i, 'skip', 'swiped_skip')}
@@ -286,15 +309,18 @@ export default function DiscoverPage() {
         ))}
       </div>
 
-      <div className="mx-auto mt-5 grid w-full max-w-[400px] grid-cols-3 gap-2 px-5 pb-8">
-        <button type="button" onClick={() => handleSwipe(0, 'skip', 'button_skip')} className="rounded-xl border px-3 py-3 text-sm font-semibold text-red-200" style={{ borderColor: 'rgba(248,113,113,0.35)', background: 'rgba(127,29,29,0.22)' }}>
-          Hate it
+      <div className="mx-auto mt-3 grid w-full max-w-[390px] grid-cols-4 gap-2 px-5 pb-6">
+        <button type="button" onClick={() => handleSwipe(0, 'skip', 'button_skip')} className="rounded-xl border px-2 py-3 text-sm font-semibold text-red-200" style={{ borderColor: 'rgba(248,113,113,0.35)', background: 'rgba(127,29,29,0.22)' }}>
+          Pass
         </button>
-        <button type="button" onClick={() => handleSwipe(0, 'liked', 'button_like')} className="rounded-xl border px-3 py-3 text-sm font-semibold text-cream" style={{ borderColor: 'rgba(255,153,51,0.35)', background: 'rgba(255,153,51,0.16)' }}>
+        <button type="button" onClick={() => handleSave(0)} className="rounded-xl border px-2 py-3 text-sm font-semibold text-cream" style={{ borderColor: 'rgba(255,248,231,0.24)', background: 'rgba(255,248,231,0.08)' }}>
+          Save
+        </button>
+        <button type="button" onClick={() => handleSwipe(0, 'liked', 'button_like')} className="rounded-xl border px-2 py-3 text-sm font-semibold text-cream" style={{ borderColor: 'rgba(255,153,51,0.35)', background: 'rgba(255,153,51,0.16)' }}>
           Like it
         </button>
-        <button type="button" onClick={() => handleSwipe(0, 'loved', 'button_love')} className="rounded-xl border px-3 py-3 text-sm font-semibold text-amber-100" style={{ borderColor: 'rgba(251,191,36,0.45)', background: 'rgba(146,64,14,0.22)' }}>
-          Love it
+        <button type="button" onClick={() => handleSwipe(0, 'loved', 'button_love')} className="rounded-xl border px-2 py-3 text-sm font-semibold text-amber-100" style={{ borderColor: 'rgba(251,191,36,0.45)', background: 'rgba(146,64,14,0.22)' }}>
+          Love
         </button>
       </div>
     </main>
