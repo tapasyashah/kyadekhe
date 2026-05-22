@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
+import { PosterImage } from '@/components/poster-image'
 import type { Tables } from '@/lib/supabase/types'
 
 type RatingValue = 'loved' | 'liked' | 'meh' | 'disliked' | 'havent_seen'
@@ -15,8 +15,6 @@ const RATING_OPTIONS: { value: RatingValue; emoji: string; label: string }[] = [
   { value: 'disliked', emoji: '👎', label: 'Disliked' },
   { value: 'havent_seen', emoji: '🤷', label: 'Haven\'t Seen' },
 ]
-
-const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w342'
 
 export default function OnboardingPage() {
   const router = useRouter()
@@ -109,18 +107,7 @@ export default function OnboardingPage() {
       <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: 'rgb(var(--card))', border: '1px solid rgba(255,153,51,0.15)' }}>
         {/* Poster */}
         <div className="relative aspect-[2/3]">
-          {current.poster_path ? (
-            <Image
-              src={`${TMDB_IMAGE_BASE}${current.poster_path}`}
-              alt={current.title}
-              fill
-              className="object-cover"
-              sizes="400px"
-              priority
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-muted text-8xl">🎬</div>
-          )}
+          <PosterImage title={current} className="object-cover" sizes="400px" priority />
           <div className="absolute inset-0 poster-gradient" />
           <div className="absolute bottom-0 left-0 right-0 p-4">
             <h2 className="font-display text-2xl font-bold text-cream">{current.title}</h2>

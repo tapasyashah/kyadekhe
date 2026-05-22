@@ -3,11 +3,9 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
+import { PosterImage } from '@/components/poster-image'
 import type { Tables } from '@/lib/supabase/types'
-
-const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w342'
 
 interface CollectionItem {
   id: string
@@ -91,14 +89,10 @@ export default function CollectionDetailPage() {
           {items.map((item) => (
             <div key={item.id} className="relative group">
               <Link href={`/title/${item.title.id}`}>
-                <div className="rounded-xl overflow-hidden" style={{ background: 'rgb(var(--card))' }}>
-                  <div className="relative aspect-[2/3] bg-muted">
-                    {item.title.poster_path ? (
-                      <Image src={`${TMDB_IMAGE_BASE}${item.title.poster_path}`} alt={item.title.title} fill className="object-cover" sizes="180px" />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-4xl">🎬</div>
-                    )}
-                  </div>
+                  <div className="rounded-xl overflow-hidden" style={{ background: 'rgb(var(--card))' }}>
+                    <div className="relative aspect-[2/3] bg-muted">
+                      <PosterImage title={item.title} className="object-cover" sizes="180px" />
+                    </div>
                   <div className="p-2">
                     <p className="text-xs font-semibold text-cream line-clamp-1">{item.title.title}</p>
                     <p className="text-[10px] text-muted-foreground">{item.title.year}</p>

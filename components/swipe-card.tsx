@@ -1,10 +1,9 @@
 'use client'
 
-import { useRef } from 'react'
 import { motion, useMotionValue, useTransform, type PanInfo } from 'framer-motion'
-import Image from 'next/image'
 import type { Tables } from '@/lib/supabase/types'
 import { StreamingPills } from '@/components/streaming-pills'
+import { PosterImage } from '@/components/poster-image'
 
 interface SwipeCardProps {
   title: Tables<'titles'>
@@ -12,12 +11,12 @@ interface SwipeCardProps {
   streaming?: Tables<'streaming_availability'>[]
   region?: string
   isTop: boolean
-  onSwipeRight: () => void
-  onSwipeLeft: () => void
-  onSwipeUp: () => void
+  onLike: () => void
+  onLove: () => void
+  onHate: () => void
+  onSave: () => void
 }
 
-const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w500'
 const SWIPE_THRESHOLD = 100
 
 const EMOTIONAL_WEIGHT_COLORS: Record<string, string> = {
@@ -30,15 +29,15 @@ const EMOTIONAL_WEIGHT_COLORS: Record<string, string> = {
 
 export function SwipeCard({
   title, tags, streaming = [], region = 'IN',
-  isTop, onSwipeRight, onSwipeLeft, onSwipeUp,
+  isTop, onLike, onLove, onHate, onSave,
 }: SwipeCardProps) {
   const x = useMotionValue(0)
   const y = useMotionValue(0)
   const rotate = useTransform(x, [-200, 0, 200], [-20, 0, 20])
 
-  const loveOpacity = useTransform(x, [0, SWIPE_THRESHOLD], [0, 1])
-  const skipOpacity = useTransform(x, [-SWIPE_THRESHOLD, 0], [1, 0])
-  const saveOpacity = useTransform(y, [-SWIPE_THRESHOLD, 0], [1, 0])
+  const likeOpacity = useTransform(x, [0, SWIPE_THRESHOLD], [0, 1])
+  const hateOpacity = useTransform(x, [-SWIPE_THRESHOLD, 0], [1, 0])
+  const loveOpacity = useTransform(y, [-SWIPE_THRESHOLD, 0], [1, 0])
 
   const emotionalWeight = tags?.['emotional_weight'] as string | undefined
   const era = tags?.['era'] as string | undefined
@@ -50,9 +49,9 @@ export function SwipeCard({
     const swipeX = Math.abs(offset.x) > SWIPE_THRESHOLD || Math.abs(velocity.x) > 500
     const swipeUp = offset.y < -SWIPE_THRESHOLD || velocity.y < -500
 
-    if (swipeUp) { onSwipeUp(); return }
-    if (swipeX && offset.x > 0) { onSwipeRight(); return }
-    if (swipeX && offset.x < 0) { onSwipeLeft(); return }
+    if (swipeUp) { onLove(); return }
+    if (swipeX && offset.x > 0) { onLike(); return }
+    if (swipeX && offset.x < 0) { onHate(); return }
   }
 
   return (
@@ -70,19 +69,12 @@ export function SwipeCard({
         style={{ boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }}>
 
         {/* Poster */}
-        {title.poster_path ? (
-          <Image
-            src={`${TMDB_IMAGE_BASE}${title.poster_path}`}
-            alt={title.title}
-            fill
-            className="object-cover pointer-events-none"
-            sizes="(max-width: 480px) 100vw, 400px"
-            priority={isTop}
-            draggable={false}
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-card text-8xl">🎬</div>
-        )}
+        <PosterImage
+          title={title}
+          className="object-cover pointer-events-none"
+          sizes="(max-width: 480px) 100vw, 400px"
+          priority={isTop}
+        />
 
         {/* Gradient overlay */}
         <div className="absolute inset-0 poster-gradient" />
@@ -90,21 +82,21 @@ export function SwipeCard({
         {/* Swipe indicators */}
         <motion.div
           className="absolute top-8 left-6 font-display text-3xl font-bold text-green-400 border-4 border-green-400 px-3 py-1 rounded-lg rotate-[-15deg]"
-          style={{ opacity: loveOpacity }}
+          style={{ opacity: likeOpacity }}
         >
-          LOVED
+          LIKE
         </motion.div>
         <motion.div
           className="absolute top-8 right-6 font-display text-3xl font-bold text-red-400 border-4 border-red-400 px-3 py-1 rounded-lg rotate-[15deg]"
-          style={{ opacity: skipOpacity }}
+          style={{ opacity: hateOpacity }}
         >
-          SKIP
+          PASS
         </motion.div>
         <motion.div
-          className="absolute top-8 left-1/2 -translate-x-1/2 font-display text-3xl font-bold text-blue-400 border-4 border-blue-400 px-3 py-1 rounded-lg"
-          style={{ opacity: saveOpacity }}
+          className="absolute top-8 left-1/2 -translate-x-1/2 font-display text-3xl font-bold text-amber-300 border-4 border-amber-300 px-3 py-1 rounded-lg"
+          style={{ opacity: loveOpacity }}
         >
-          SAVE
+          LOVE
         </motion.div>
 
         {/* Bottom content */}
@@ -153,6 +145,22 @@ export function SwipeCard({
               {whyHint && <span className="ml-2 opacity-70">· Writing: {whyHint}</span>}
             </p>
           )}
+          {title.overview && (
+            <p className="line-clamp-2 text-xs leading-relaxed text-cream/70">
+              {title.overview}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation()
+              onSave()
+            }}
+            className="mt-1 rounded-full border px-3 py-1 text-xs font-semibold text-cream/80"
+            style={{ borderColor: 'rgba(255,248,231,0.25)', background: 'rgba(14,10,11,0.35)' }}
+          >
+            Save for later
+          </button>
         </div>
       </div>
     </motion.div>

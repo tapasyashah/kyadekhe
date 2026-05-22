@@ -1,14 +1,16 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getRecommendations } from '@/lib/recommender'
+import { getAnonymousRecommendations, getRecommendations, type AnonymousSignal } from '@/lib/recommender'
 import { MOODS } from '@/lib/moods'
-import type { Tables } from '@/lib/supabase/types'
 
 // Simple in-memory rate limit: 20 req/min per user
 // Resets on cold starts — acceptable for a single-instance launch
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT = 20
 const RATE_WINDOW_MS = 60_000
+const VALID_RATINGS = new Set(['loved', 'liked', 'skip'])
+
+export const dynamic = 'force-dynamic'
 
 function isRateLimited(userId: string): boolean {
   const now = Date.now()
@@ -22,6 +24,35 @@ function isRateLimited(userId: string): boolean {
   return false
 }
 
+function parseUuidList(value: string | null): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((id) => id.trim())
+    .filter((id) => /^[0-9a-f-]{36}$/i.test(id))
+    .slice(0, 250)
+}
+
+function parseSignals(searchParams: URLSearchParams): AnonymousSignal[] {
+  const signals: AnonymousSignal[] = []
+  for (const rating of ['loved', 'liked', 'skip'] as const) {
+    for (const titleId of parseUuidList(searchParams.get(rating))) {
+      signals.push({ titleId, rating })
+    }
+  }
+
+  const compact = searchParams.get('signals')
+  if (compact) {
+    for (const part of compact.split(',')) {
+      const [titleId, rating] = part.split(':')
+      if (/^[0-9a-f-]{36}$/i.test(titleId) && VALID_RATINGS.has(rating)) {
+        signals.push({ titleId, rating: rating as AnonymousSignal['rating'] })
+      }
+    }
+  }
+
+  return signals.slice(-250)
+}
+
 export async function GET(request: Request) {
   try {
     const supabase = createClient()
@@ -32,11 +63,8 @@ export async function GET(request: Request) {
     const moodId = searchParams.get('mood')
     const eraFilter = searchParams.get('era') ?? undefined
     const platformFilter = searchParams.get('platform') ?? undefined
-    const excludeTitleIds = (searchParams.get('exclude') ?? '')
-      .split(',')
-      .map((id) => id.trim())
-      .filter((id) => /^[0-9a-f-]{36}$/i.test(id))
-      .slice(0, 100)
+    const excludeTitleIds = parseUuidList(searchParams.get('exclude'))
+    const signals = parseSignals(searchParams)
 
     let moodFilters: Record<string, string[]> | undefined
     if (moodId) {
@@ -45,70 +73,10 @@ export async function GET(request: Request) {
     }
 
     if (!user) {
-      // Guest mode: return top-rated titles without personalisation
-      const candidateLimit = Math.min(300, Math.max(limit * 10, 80))
-      let query = supabase
-        .from('titles')
-        .select('*')
-        .not('imdb_rating', 'is', null)
-        .order('imdb_rating', { ascending: false })
-        .limit(candidateLimit)
-
-      if (languageFilter && languageFilter !== 'All') {
-        query = query.eq('language', languageFilter)
-      }
-
-      if (excludeTitleIds.length > 0) {
-        query = query.not('id', 'in', `(${excludeTitleIds.join(',')})`)
-      }
-
-      const { data: titles } = await query
-      if (!titles || titles.length === 0) return NextResponse.json([])
-
-      const titleIds = titles.map((t) => t.id)
-      const [tagRows, streamingRows] = await Promise.all([
-        supabase.from('title_tags').select('title_id, tags').in('title_id', titleIds).limit(titleIds.length),
-        supabase.from('streaming_availability').select('*').in('title_id', titleIds).eq('region', 'IN'),
-      ])
-
-      const tagsByTitleId = new Map<string, Record<string, unknown>>()
-      for (const row of tagRows.data ?? []) {
-        if (row.title_id) tagsByTitleId.set(row.title_id, row.tags as Record<string, unknown>)
-      }
-
-      const streamingByTitleId = new Map<string, Tables<'streaming_availability'>[]>()
-      for (const row of streamingRows.data ?? []) {
-        if (!row.title_id) continue
-        const existing = streamingByTitleId.get(row.title_id) ?? []
-        streamingByTitleId.set(row.title_id, [...existing, row])
-      }
-
-      let results = titles.map((title) => ({
-        title,
-        tags: tagsByTitleId.get(title.id) ?? {},
-        score: Number(title.imdb_rating ?? 0),
-        streaming: streamingByTitleId.get(title.id) ?? [],
-      }))
-
-      if (moodFilters && Object.keys(moodFilters).length > 0) {
-        results = results.filter((result) => {
-          for (const [field, allowed] of Object.entries(moodFilters)) {
-            const value = result.tags[field]
-            if (typeof value !== 'string' || !allowed.includes(value)) return false
-          }
-          return true
-        })
-      }
-
-      if (eraFilter && eraFilter !== 'all') {
-        results = results.filter((result) => result.tags['era'] === eraFilter)
-      }
-
-      if (platformFilter) {
-        results = results.filter((result) => result.streaming.some((s) => s.platform === platformFilter))
-      }
-
-      return NextResponse.json(results.slice(0, limit))
+      const results = await getAnonymousRecommendations(supabase, {
+        limit, moodFilters, eraFilter, platformFilter, languageFilter, excludeTitleIds, signals,
+      })
+      return NextResponse.json(results)
     }
 
     if (isRateLimited(user.id)) {

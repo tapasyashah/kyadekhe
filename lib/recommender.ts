@@ -19,6 +19,11 @@ export interface RecommendOptions {
   excludeTitleIds?: string[]
 }
 
+export interface AnonymousSignal {
+  titleId: string
+  rating: 'loved' | 'liked' | 'skip'
+}
+
 export function cosineSimilarity(
   a: Record<string, number>,
   b: Record<string, number>
@@ -39,7 +44,7 @@ export function cosineSimilarity(
   return dot / (Math.sqrt(normA) * Math.sqrt(normB))
 }
 
-function buildTagVector(tags: Record<string, unknown>): Record<string, number> {
+export function buildTagVector(tags: Record<string, unknown>): Record<string, number> {
   const v: Record<string, number> = {}
   const stringFields = [
     'era', 'format', 'language_register', 'emotional_weight', 'humour_style',
@@ -55,13 +60,132 @@ function buildTagVector(tags: Record<string, unknown>): Record<string, number> {
   return v
 }
 
-function matchesMoodFilters(tags: Record<string, unknown>, moodFilters: Record<string, string[]>): boolean {
+export function matchesMoodFilters(tags: Record<string, unknown>, moodFilters: Record<string, string[]>): boolean {
   for (const [field, allowed] of Object.entries(moodFilters)) {
     const val = tags[field]
     if (typeof val !== 'string') continue
     if (!allowed.includes(val)) return false
   }
   return true
+}
+
+function buildAnonymousTasteVector(
+  signals: AnonymousSignal[],
+  tagsByTitleId: Map<string, Record<string, unknown>>
+): Record<string, number> {
+  const weights: Record<AnonymousSignal['rating'], number> = {
+    loved: 3,
+    liked: 1.4,
+    skip: -1,
+  }
+  const vector: Record<string, number> = {}
+
+  for (const signal of signals) {
+    const tags = tagsByTitleId.get(signal.titleId)
+    if (!tags) continue
+    const tagVector = buildTagVector(tags)
+    const weight = weights[signal.rating]
+    for (const key of Object.keys(tagVector)) {
+      vector[key] = (vector[key] ?? 0) + weight
+    }
+  }
+
+  const maxAbs = Math.max(1, ...Object.values(vector).map(Math.abs))
+  return Object.fromEntries(Object.entries(vector).map(([key, value]) => [key, value / maxAbs]))
+}
+
+export async function getAnonymousRecommendations(
+  supabase: SupabaseClient<Database>,
+  opts: RecommendOptions & { signals?: AnonymousSignal[] } = {}
+): Promise<RecommendedTitle[]> {
+  const {
+    limit = 20,
+    moodFilters,
+    platformFilter,
+    eraFilter,
+    region = 'IN',
+    languageFilter,
+    excludeTitleIds = [],
+    signals = [],
+  } = opts
+  const excludedIds = new Set(excludeTitleIds)
+  const signalTitleIds = Array.from(new Set(signals.map((signal) => signal.titleId)))
+
+  let titlesQuery = supabase
+    .from('titles')
+    .select('*')
+    .not('imdb_rating', 'is', null)
+    .order('imdb_rating', { ascending: false })
+
+  if (languageFilter && languageFilter !== 'All') {
+    titlesQuery = titlesQuery.eq('language', languageFilter)
+  }
+
+  if (excludeTitleIds.length > 0) {
+    titlesQuery = titlesQuery.not('id', 'in', `(${excludeTitleIds.slice(-120).join(',')})`)
+  }
+
+  const { data: titles } = await titlesQuery.limit(400)
+  if (!titles) return []
+
+  const titleIds = titles.map((title) => title.id)
+  const tagIds = Array.from(new Set([...titleIds, ...signalTitleIds]))
+  const { data: titleTagRows } = await supabase
+    .from('title_tags')
+    .select('title_id, tags')
+    .in('title_id', tagIds)
+    .limit(tagIds.length)
+
+  const tagsByTitleId = new Map<string, Record<string, unknown>>()
+  for (const row of titleTagRows ?? []) {
+    if (row.title_id) tagsByTitleId.set(row.title_id, row.tags as Record<string, unknown>)
+  }
+
+  const tasteVector = buildAnonymousTasteVector(signals, tagsByTitleId)
+  const scored: Array<{ title: Tables<'titles'>; tags: Record<string, unknown>; score: number }> = []
+  for (const title of titles) {
+    const tags = tagsByTitleId.get(title.id) ?? {}
+    if (moodFilters && Object.keys(moodFilters).length > 0 && !matchesMoodFilters(tags, moodFilters)) continue
+    if (eraFilter && eraFilter !== 'all' && tags['era'] !== eraFilter) continue
+
+    const tagVector = buildTagVector(tags)
+    const tasteScore = Object.keys(tasteVector).length > 0 ? cosineSimilarity(tasteVector, tagVector) : 0
+    const noveltyBoost = signalTitleIds.length > 0 && !signalTitleIds.includes(title.id) ? 0.15 : 0
+    const qualityScore = Number(title.imdb_rating ?? 0) / 10
+    scored.push({
+      title,
+      tags,
+      score: tasteScore * 0.72 + qualityScore * 0.25 + noveltyBoost,
+    })
+  }
+
+  scored.sort((a, b) => b.score - a.score)
+  const top = scored.slice(0, limit * 4)
+
+  const topIds = top.map((item) => item.title.id)
+  const { data: streamingRows } = await supabase
+    .from('streaming_availability')
+    .select('*')
+    .in('title_id', topIds)
+    .eq('region', region)
+
+  const streamingByTitleId = new Map<string, Tables<'streaming_availability'>[]>()
+  for (const row of streamingRows ?? []) {
+    if (!row.title_id) continue
+    const existing = streamingByTitleId.get(row.title_id) ?? []
+    streamingByTitleId.set(row.title_id, [...existing, row])
+  }
+
+  let results: RecommendedTitle[] = top.map((item) => ({
+    ...item,
+    streaming: streamingByTitleId.get(item.title.id) ?? [],
+  }))
+
+  if (platformFilter) {
+    results = results.filter((result) => result.streaming.some((stream) => stream.platform === platformFilter))
+  }
+
+  return results.slice(0, limit)
 }
 
 export async function getRecommendations(

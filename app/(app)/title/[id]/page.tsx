@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import Image from 'next/image'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { PosterImage } from '@/components/poster-image'
 import { StreamingPills } from '@/components/streaming-pills'
 import { CollectionPicker } from '@/components/collection-picker'
+import { rateGuestTitle } from '@/lib/guest-taste'
+import { backdropSrc } from '@/lib/poster'
 import type { Tables } from '@/lib/supabase/types'
-
-const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w780'
 
 export default function TitlePage() {
   const { id } = useParams<{ id: string }>()
@@ -23,7 +23,7 @@ export default function TitlePage() {
   const [loading, setLoading] = useState(true)
   const [rating, setRating] = useState<string | null>(null)
   const [isGuest, setIsGuest] = useState(false)
-  const [authPrompt, setAuthPrompt] = useState<'rating' | 'collection' | null>(null)
+  const [authPrompt, setAuthPrompt] = useState<'collection' | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -71,7 +71,10 @@ export default function TitlePage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      setAuthPrompt('rating')
+      if (title && (r === 'loved' || r === 'liked' || r === 'skip')) {
+        rateGuestTitle(title.id, r)
+      }
+      setRating(r)
       return
     }
     if (!title) return
@@ -86,15 +89,15 @@ export default function TitlePage() {
     <main className="min-h-screen">
       {/* Backdrop */}
       <div className="relative h-64 sm:h-80">
-        {title.backdrop_path ? (
-          <Image src={`${TMDB_IMAGE_BASE}${title.backdrop_path}`} alt="" fill className="object-cover opacity-40" sizes="100vw" />
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-b from-burgundy/30 to-transparent" />
-        )}
+        <img src={backdropSrc(title)} alt="" className="absolute inset-0 h-full w-full object-cover opacity-40" />
         <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, transparent 30%, rgb(var(--background)))' }} />
       </div>
 
       <div className="px-5 -mt-24 relative z-10 pb-8">
+        <div className="relative mb-4 aspect-[2/3] w-28 overflow-hidden rounded-xl bg-muted shadow-2xl sm:w-36">
+          <PosterImage title={title} className="object-cover" sizes="144px" priority />
+        </div>
+
         {/* Title info */}
         <h1 className="font-display text-3xl font-bold text-cream leading-tight">{title.title}</h1>
         <p className="text-muted-foreground mt-1 text-sm">
@@ -136,6 +139,16 @@ export default function TitlePage() {
           </div>
         )}
 
+        {!why && tags && (
+          <div className="mt-5 rounded-xl p-4" style={{ background: 'rgba(255,153,51,0.05)', border: '1px solid rgba(255,153,51,0.15)' }}>
+            <p className="text-xs text-muted-foreground mb-2 font-semibold uppercase tracking-wider">Quick read</p>
+            <p className="text-sm text-cream/85 leading-relaxed">
+              {String(tags['emotional_weight'] ?? 'A distinct pick')} {String(tags['era'] ?? '').toLowerCase()} with {String(tags['writing_quality'] ?? 'solid')} writing
+              {typeof tags['watch_with'] === 'string' ? `, best watched ${tags['watch_with']}.` : '.'}
+            </p>
+          </div>
+        )}
+
         {/* Overview */}
         {title.overview && (
           <div className="mt-4">
@@ -155,18 +168,18 @@ export default function TitlePage() {
         {/* Rate it */}
         <div className="mt-6">
           <p className="text-xs text-muted-foreground mb-2 font-semibold uppercase tracking-wider">Your rating</p>
-          <div className="flex gap-2">
-            {[['loved','❤️'],['liked','👍'],['meh','😐'],['disliked','👎'],['havent_seen','🤷']].map(([r, emoji]) => (
+          <div className="grid grid-cols-3 gap-2">
+            {[['skip','Hate it'],['liked','Like it'],['loved','Love it']].map(([r, label]) => (
               <button
                 key={r}
                 onClick={() => rateTitle(r as 'loved' | 'liked' | 'meh' | 'disliked' | 'havent_seen' | 'skip')}
-                className="flex-1 py-2 rounded-xl text-xl transition-all border"
+                className="py-3 rounded-xl text-sm font-semibold transition-all border"
                 style={{
                   background: rating === r ? 'rgba(255,153,51,0.15)' : 'rgb(var(--card))',
                   borderColor: rating === r ? 'rgb(var(--saffron))' : 'rgba(255,153,51,0.1)',
                 }}
               >
-                {emoji}
+                {label}
               </button>
             ))}
           </div>
@@ -189,7 +202,7 @@ export default function TitlePage() {
             style={{ background: 'rgb(var(--card))', border: '1px solid rgba(255,153,51,0.2)' }}
           >
             <h2 className="font-display text-2xl font-bold text-cream">
-              {authPrompt === 'rating' ? 'Rate this title?' : 'Save this title?'}
+              Save this title?
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
               Create a free account to save ratings, build collections, and get better recommendations.

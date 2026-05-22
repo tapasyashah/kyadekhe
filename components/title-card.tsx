@@ -1,7 +1,7 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import type { Tables } from '@/lib/supabase/types'
 import { StreamingPills } from '@/components/streaming-pills'
+import { PosterImage } from '@/components/poster-image'
 
 interface TitleCardProps {
   title: Tables<'titles'>
@@ -9,8 +9,6 @@ interface TitleCardProps {
   streaming?: Tables<'streaming_availability'>[]
   region?: string
 }
-
-const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w342'
 
 const TAG_COLORS: Record<string, string> = {
   'featherlight': '#22c55e',
@@ -33,17 +31,7 @@ export function TitleCard({ title, tags, streaming = [], region = 'IN' }: TitleC
       >
         {/* Poster */}
         <div className="relative aspect-[2/3] bg-muted">
-          {title.poster_path ? (
-            <Image
-              src={`${TMDB_IMAGE_BASE}${title.poster_path}`}
-              alt={title.title}
-              fill
-              className="object-cover"
-              sizes="(max-width: 640px) 50vw, 180px"
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center text-4xl">🎬</div>
-          )}
+          <PosterImage title={title} className="object-cover" sizes="(max-width: 640px) 50vw, 180px" />
 
           {/* IMDb badge */}
           {title.imdb_rating && (

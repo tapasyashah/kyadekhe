@@ -2,8 +2,8 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { MOODS, type MoodId } from '@/lib/moods'
+import { PosterImage } from '@/components/poster-image'
 import type { Tables } from '@/lib/supabase/types'
 import { createClient } from '@/lib/supabase/client'
 
@@ -13,8 +13,6 @@ interface RecommendedTitle {
   streaming: Tables<'streaming_availability'>[]
   score: number
 }
-
-const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p/w342'
 
 export default function MoodPage() {
   const [selected, setSelected] = useState<MoodId | null>(null)
@@ -90,17 +88,7 @@ export default function MoodPage() {
                   style={{ background: 'rgb(var(--card))', border: '1px solid rgba(255,153,51,0.08)' }}
                 >
                   <div className="relative w-14 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-muted">
-                    {item.title.poster_path ? (
-                      <Image
-                        src={`${TMDB_IMAGE_BASE}${item.title.poster_path}`}
-                        alt={item.title.title}
-                        fill
-                        className="object-cover"
-                        sizes="56px"
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-2xl">🎬</div>
-                    )}
+                    <PosterImage title={item.title} className="object-cover" sizes="56px" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="font-display font-semibold text-cream text-sm leading-tight line-clamp-1">
