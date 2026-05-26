@@ -35,7 +35,7 @@ const LANGUAGE_PREF_KEY = 'kyadekhe_language_pref'
 const MODE_KEY = 'kyadekhe_discover_mode_v1'
 
 const TRAINING_FEEDBACK: Record<GuestRating, string> = {
-  not_watched: 'Skipped. Not counted in taste.',
+  not_watched: "Haven't seen. Not counted in taste.",
   disliked: 'Got it. Less like this.',
   liked: 'Nice, more like this.',
   loved: 'Strong signal saved.',
@@ -63,6 +63,48 @@ function reasonFromTags(tags: Record<string, unknown>, language?: string | null)
 
   if (parts.length === 0) return 'Because it fits the taste signals you just gave.'
   return `Because it matches your taste for ${parts.slice(0, 3).join(', ')}.`
+}
+
+function DiscoverCardSkeleton() {
+  return (
+    <div className="mx-auto mt-3 w-full max-w-[390px]">
+      <div
+        className="relative overflow-hidden rounded-[18px] border"
+        style={{
+          height: 'clamp(390px, calc(100svh - 285px), 560px)',
+          borderColor: 'rgba(255,153,51,0.14)',
+          background: 'linear-gradient(145deg, rgba(255,153,51,0.08), rgba(48,18,28,0.42), rgba(14,10,11,0.92))',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+        }}
+        aria-label="Loading movie card"
+      >
+        <div className="absolute inset-0 animate-pulse bg-gradient-to-t from-black/80 via-cream/5 to-saffron/10" />
+        <div className="absolute left-4 right-4 top-4 h-1/2 rounded-2xl bg-cream/5" />
+        <div className="absolute bottom-0 left-0 right-0 space-y-3 p-4">
+          <div className="h-7 w-2/3 rounded-full bg-cream/15" />
+          <div className="h-4 w-5/6 rounded-full bg-cream/10" />
+          <div className="flex gap-2">
+            <div className="h-6 w-24 rounded-full bg-saffron/20" />
+            <div className="h-6 w-20 rounded-full bg-cream/10" />
+            <div className="h-6 w-16 rounded-full bg-cream/10" />
+          </div>
+          <div className="h-3 w-full rounded-full bg-cream/10" />
+          <div className="h-3 w-4/5 rounded-full bg-cream/10" />
+        </div>
+      </div>
+      <div className="mt-3 grid grid-cols-4 gap-1.5">
+        {["Haven't seen", "Didn't like", 'Like', 'Love'].map((label) => (
+          <div
+            key={label}
+            className="rounded-xl border px-1.5 py-3 text-center text-[12px] font-semibold text-cream/35"
+            style={{ borderColor: 'rgba(255,248,231,0.12)', background: 'rgba(255,248,231,0.04)' }}
+          >
+            {label}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 export default function DiscoverPage() {
@@ -256,7 +298,7 @@ export default function DiscoverPage() {
               Rate movies you already know. After a few swipes, we&apos;ll recommend what to watch tonight.
             </p>
             <div className="mt-5 space-y-2 text-sm text-cream/85">
-              <p><b>Not watched</b> skips from taste learning</p>
+              <p><b>Haven&apos;t seen</b> skips from taste learning</p>
               <p><b>Didn&apos;t like</b> avoids similar picks</p>
               <p><b>Like</b> shows more like this</p>
               <p><b>Love</b> is a strong signal</p>
@@ -342,9 +384,8 @@ export default function DiscoverPage() {
         </header>
 
         {loading && stack.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 py-12">
-            <div className="text-4xl animate-pulse">🎬</div>
-            <p className="text-sm text-muted-foreground">Finding your next picks...</p>
+          <div className="flex flex-1 flex-col">
+            <DiscoverCardSkeleton />
           </div>
         ) : stack.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-4 px-3 py-12 text-center">
@@ -367,10 +408,11 @@ export default function DiscoverPage() {
           </div>
         ) : mode === 'training' ? (
           <>
-            <div className="mt-2 flex justify-center gap-4 text-[11px] text-muted-foreground">
+            <div className="mt-2 grid grid-cols-4 gap-1 text-center text-[10px] leading-tight text-muted-foreground sm:flex sm:justify-center sm:gap-4 sm:text-[11px]">
               <span>← Didn&apos;t like</span>
               <span>↑ Love</span>
               <span>Like →</span>
+              <span>↓ Haven&apos;t seen</span>
             </div>
             <div
               className="relative mx-auto mt-2 w-full max-w-[390px]"
@@ -405,7 +447,7 @@ export default function DiscoverPage() {
             </div>
             <div className="mx-auto mt-3 grid w-full max-w-[390px] grid-cols-4 gap-1.5 pb-2">
               <button type="button" onClick={() => handleTrainingAction(0, 'not_watched', 'button_not_watched')} className="rounded-xl border px-1.5 py-3 text-[12px] font-semibold text-cream" style={{ borderColor: 'rgba(255,248,231,0.2)', background: 'rgba(255,248,231,0.07)' }}>
-                Not watched
+                Haven&apos;t seen
               </button>
               <button type="button" onClick={() => handleTrainingAction(0, 'disliked', 'button_disliked')} className="rounded-xl border px-1.5 py-3 text-[12px] font-semibold text-red-200" style={{ borderColor: 'rgba(248,113,113,0.35)', background: 'rgba(127,29,29,0.22)' }}>
                 Didn&apos;t like

@@ -174,7 +174,7 @@ export default function TitlePage() {
           <p className="text-xs text-muted-foreground mb-2 font-semibold uppercase tracking-wider">Your rating</p>
           <div className="grid grid-cols-4 gap-1.5">
             {[
-              ['not_watched', 'Not watched'],
+              ['not_watched', "Haven't seen"],
               ['disliked', "Didn't like"],
               ['liked', 'Like'],
               ['loved', 'Love'],

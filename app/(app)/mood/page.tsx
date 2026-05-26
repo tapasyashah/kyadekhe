@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { MOODS, type MoodId } from '@/lib/moods'
 import { PosterImage } from '@/components/poster-image'
@@ -40,6 +40,7 @@ function reasonFromTags(tags: Record<string, unknown>, moodLabel?: string) {
 }
 
 export default function MoodPage() {
+  const resultsRef = useRef<HTMLElement | null>(null)
   const [selected, setSelected] = useState<MoodId | null>(null)
   const [results, setResults] = useState<RecommendedTitle[]>([])
   const [loading, setLoading] = useState(false)
@@ -62,6 +63,9 @@ export default function MoodPage() {
     setSelected(moodId)
     localStorage.setItem(SELECTED_MOOD_KEY, moodId)
     setLoading(true)
+    window.setTimeout(() => {
+      resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 80)
 
     const taste = readGuestTaste()
     const encodedTaste = encodeGuestTaste(taste)
@@ -136,7 +140,7 @@ export default function MoodPage() {
       </div>
 
       {selected && (
-        <section>
+        <section ref={resultsRef} className="scroll-mt-4">
           <div className="mb-3 flex items-end justify-between gap-3">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-saffron">

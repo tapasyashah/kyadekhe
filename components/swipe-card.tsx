@@ -109,7 +109,7 @@ export function SwipeCard({
           className="absolute bottom-8 left-1/2 -translate-x-1/2 font-display text-2xl font-bold text-cream border-4 border-cream/70 px-3 py-1 rounded-lg"
           style={{ opacity: notWatchedOpacity }}
         >
-          NOT WATCHED
+          HAVEN&apos;T SEEN
         </motion.div>
 
         {/* Bottom content */}
