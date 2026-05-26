@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { PosterImage } from '@/components/poster-image'
 import { StreamingPills } from '@/components/streaming-pills'
 import { CollectionPicker } from '@/components/collection-picker'
-import { rateGuestTitle, saveGuestTitle } from '@/lib/guest-taste'
+import { rateGuestTitle, saveGuestTitle, type GuestRating } from '@/lib/guest-taste'
 import { backdropSrc } from '@/lib/poster'
 import type { Tables } from '@/lib/supabase/types'
 
@@ -50,7 +50,7 @@ export default function TitlePage() {
 
       setTags(tagRow?.tags as Record<string, unknown> ?? null)
       setStreaming(streamRows ?? [])
-      setRating(ratingResult.data?.rating ?? null)
+      setRating(ratingResult.data?.rating === 'havent_seen' ? 'not_watched' : ratingResult.data?.rating ?? null)
       setLoading(false)
 
       // Load "why" async
@@ -65,18 +65,17 @@ export default function TitlePage() {
     load()
   }, [id])
 
-  async function rateTitle(r: 'loved' | 'liked' | 'meh' | 'disliked' | 'havent_seen' | 'skip') {
+  async function rateTitle(r: GuestRating) {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      if (title && (r === 'loved' || r === 'liked' || r === 'skip')) {
-        rateGuestTitle(title.id, r)
-      }
+      if (title) rateGuestTitle(title.id, r)
       setRating(r)
       return
     }
     if (!title) return
-    await supabase.from('ratings').upsert({ user_id: user.id, title_id: title.id, rating: r }, { onConflict: 'user_id,title_id' })
+    const dbRating = r === 'not_watched' ? 'havent_seen' : r
+    await supabase.from('ratings').upsert({ user_id: user.id, title_id: title.id, rating: dbRating }, { onConflict: 'user_id,title_id' })
     setRating(r)
   }
 
@@ -173,12 +172,17 @@ export default function TitlePage() {
         {/* Rate it */}
         <div className="mt-6">
           <p className="text-xs text-muted-foreground mb-2 font-semibold uppercase tracking-wider">Your rating</p>
-          <div className="grid grid-cols-3 gap-2">
-            {[['skip','Hate it'],['liked','Like it'],['loved','Love it']].map(([r, label]) => (
+          <div className="grid grid-cols-4 gap-1.5">
+            {[
+              ['not_watched', 'Not watched'],
+              ['disliked', "Didn't like"],
+              ['liked', 'Like'],
+              ['loved', 'Love'],
+            ].map(([r, label]) => (
               <button
                 key={r}
-                onClick={() => rateTitle(r as 'loved' | 'liked' | 'meh' | 'disliked' | 'havent_seen' | 'skip')}
-                className="py-3 rounded-xl text-sm font-semibold transition-all border"
+                onClick={() => rateTitle(r as GuestRating)}
+                className="rounded-xl border px-1.5 py-3 text-[12px] font-semibold transition-all"
                 style={{
                   background: rating === r ? 'rgba(255,153,51,0.15)' : 'rgb(var(--card))',
                   borderColor: rating === r ? 'rgb(var(--saffron))' : 'rgba(255,153,51,0.1)',

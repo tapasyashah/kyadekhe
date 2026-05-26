@@ -3,7 +3,13 @@ import { createClient } from '@/lib/supabase/server'
 import { parseAskQuery } from '@/lib/claude'
 import { getAnonymousRecommendations, getRecommendations, type AnonymousSignal } from '@/lib/recommender'
 
-const VALID_RATINGS = new Set(['loved', 'liked', 'skip'])
+const VALID_RATINGS = new Set(['loved', 'liked', 'disliked', 'not_watched', 'skip', 'havent_seen'])
+
+function normalizeRating(value: unknown): AnonymousSignal['rating'] | null {
+  if (value === 'loved' || value === 'liked' || value === 'disliked' || value === 'not_watched' || value === 'skip') return value
+  if (value === 'havent_seen') return 'not_watched'
+  return null
+}
 
 function parseSignals(value: unknown): AnonymousSignal[] {
   if (Array.isArray(value)) {
@@ -15,12 +21,13 @@ function parseSignals(value: unknown): AnonymousSignal[] {
         /^[0-9a-f-]{36}$/i.test((entry as AnonymousSignal).titleId) &&
         VALID_RATINGS.has((entry as AnonymousSignal).rating)
       ))
+      .map((entry) => ({ ...entry, rating: normalizeRating(entry.rating) ?? 'not_watched' }))
       .slice(-250)
   }
 
   if (typeof value === 'object' && value !== null) {
     const signals: AnonymousSignal[] = []
-    for (const rating of ['loved', 'liked', 'skip'] as const) {
+    for (const rating of ['loved', 'liked', 'disliked', 'not_watched', 'skip'] as const) {
       const ids = (value as Partial<Record<typeof rating, unknown>>)[rating]
       if (!Array.isArray(ids)) continue
       for (const titleId of ids) {

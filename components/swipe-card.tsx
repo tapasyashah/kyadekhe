@@ -13,9 +13,11 @@ interface SwipeCardProps {
   region?: string
   isTop: boolean
   isSaved?: boolean
+  showSaveAction?: boolean
   onLike: () => void
   onLove: () => void
-  onHate: () => void
+  onDislike: () => void
+  onNotWatched: () => void
   onSave: () => void
 }
 
@@ -31,15 +33,16 @@ const EMOTIONAL_WEIGHT_COLORS: Record<string, string> = {
 
 export function SwipeCard({
   title, tags, streaming = [], region = 'IN',
-  isTop, isSaved = false, onLike, onLove, onHate, onSave,
+  isTop, isSaved = false, showSaveAction = true, onLike, onLove, onDislike, onNotWatched, onSave,
 }: SwipeCardProps) {
   const x = useMotionValue(0)
   const y = useMotionValue(0)
   const rotate = useTransform(x, [-200, 0, 200], [-20, 0, 20])
 
   const likeOpacity = useTransform(x, [0, SWIPE_THRESHOLD], [0, 1])
-  const hateOpacity = useTransform(x, [-SWIPE_THRESHOLD, 0], [1, 0])
+  const dislikeOpacity = useTransform(x, [-SWIPE_THRESHOLD, 0], [1, 0])
   const loveOpacity = useTransform(y, [-SWIPE_THRESHOLD, 0], [1, 0])
+  const notWatchedOpacity = useTransform(y, [0, SWIPE_THRESHOLD], [0, 1])
 
   const emotionalWeight = tags?.['emotional_weight'] as string | undefined
   const era = tags?.['era'] as string | undefined
@@ -50,10 +53,12 @@ export function SwipeCard({
     const { offset, velocity } = info
     const swipeX = Math.abs(offset.x) > SWIPE_THRESHOLD || Math.abs(velocity.x) > 500
     const swipeUp = offset.y < -SWIPE_THRESHOLD || velocity.y < -500
+    const swipeDown = offset.y > SWIPE_THRESHOLD || velocity.y > 500
 
     if (swipeUp) { onLove(); return }
+    if (swipeDown) { onNotWatched(); return }
     if (swipeX && offset.x > 0) { onLike(); return }
-    if (swipeX && offset.x < 0) { onHate(); return }
+    if (swipeX && offset.x < 0) { onDislike(); return }
   }
 
   return (
@@ -90,15 +95,21 @@ export function SwipeCard({
         </motion.div>
         <motion.div
           className="absolute top-8 right-6 font-display text-3xl font-bold text-red-400 border-4 border-red-400 px-3 py-1 rounded-lg rotate-[15deg]"
-          style={{ opacity: hateOpacity }}
+          style={{ opacity: dislikeOpacity }}
         >
-          PASS
+          NOPE
         </motion.div>
         <motion.div
           className="absolute top-8 left-1/2 -translate-x-1/2 font-display text-3xl font-bold text-amber-300 border-4 border-amber-300 px-3 py-1 rounded-lg"
           style={{ opacity: loveOpacity }}
         >
           LOVE
+        </motion.div>
+        <motion.div
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 font-display text-2xl font-bold text-cream border-4 border-cream/70 px-3 py-1 rounded-lg"
+          style={{ opacity: notWatchedOpacity }}
+        >
+          NOT WATCHED
         </motion.div>
 
         {/* Bottom content */}
@@ -161,20 +172,22 @@ export function SwipeCard({
             >
               More details
             </Link>
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation()
-                onSave()
-              }}
-              className="rounded-full border px-3 py-1.5 text-xs font-semibold text-cream/85"
-              style={{
-                borderColor: isSaved ? 'rgba(34,197,94,0.55)' : 'rgba(255,248,231,0.25)',
-                background: isSaved ? 'rgba(22,101,52,0.28)' : 'rgba(14,10,11,0.45)',
-              }}
-            >
-              {isSaved ? 'Saved' : 'Save for later'}
-            </button>
+            {showSaveAction && (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation()
+                  onSave()
+                }}
+                className="rounded-full border px-3 py-1.5 text-xs font-semibold text-cream/85"
+                style={{
+                  borderColor: isSaved ? 'rgba(34,197,94,0.55)' : 'rgba(255,248,231,0.25)',
+                  background: isSaved ? 'rgba(22,101,52,0.28)' : 'rgba(14,10,11,0.45)',
+                }}
+              >
+                {isSaved ? 'Saved' : 'Save for later'}
+              </button>
+            )}
           </div>
         </div>
       </div>

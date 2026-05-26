@@ -21,7 +21,7 @@ export interface RecommendOptions {
 
 export interface AnonymousSignal {
   titleId: string
-  rating: 'loved' | 'liked' | 'skip'
+  rating: 'not_watched' | 'disliked' | 'liked' | 'loved' | 'skip'
 }
 
 function languageCode(languageFilter?: string) {
@@ -146,11 +146,14 @@ function buildAnonymousTasteVector(
   const weights: Record<AnonymousSignal['rating'], number> = {
     loved: 3,
     liked: 1.4,
-    skip: -1,
+    disliked: -1.5,
+    skip: -1.5,
+    not_watched: 0,
   }
   const vector: Record<string, number> = {}
 
   for (const signal of signals) {
+    if (signal.rating === 'not_watched') continue
     const tags = tagsByTitleId.get(signal.titleId)
     if (!tags) continue
     const tagVector = buildTagVector(tags)

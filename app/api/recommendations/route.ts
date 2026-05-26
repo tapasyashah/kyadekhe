@@ -8,7 +8,7 @@ import { MOODS } from '@/lib/moods'
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 const RATE_LIMIT = 20
 const RATE_WINDOW_MS = 60_000
-const VALID_RATINGS = new Set(['loved', 'liked', 'skip'])
+const VALID_RATINGS = new Set(['loved', 'liked', 'disliked', 'not_watched', 'skip', 'havent_seen'])
 
 export const dynamic = 'force-dynamic'
 
@@ -34,7 +34,7 @@ function parseUuidList(value: string | null): string[] {
 
 function parseSignals(searchParams: URLSearchParams): AnonymousSignal[] {
   const signals: AnonymousSignal[] = []
-  for (const rating of ['loved', 'liked', 'skip'] as const) {
+  for (const rating of ['loved', 'liked', 'disliked', 'not_watched', 'skip'] as const) {
     for (const titleId of parseUuidList(searchParams.get(rating))) {
       signals.push({ titleId, rating })
     }
@@ -45,7 +45,8 @@ function parseSignals(searchParams: URLSearchParams): AnonymousSignal[] {
     for (const part of compact.split(',')) {
       const [titleId, rating] = part.split(':')
       if (/^[0-9a-f-]{36}$/i.test(titleId) && VALID_RATINGS.has(rating)) {
-        signals.push({ titleId, rating: rating as AnonymousSignal['rating'] })
+        const normalized = rating === 'havent_seen' ? 'not_watched' : rating
+        signals.push({ titleId, rating: normalized as AnonymousSignal['rating'] })
       }
     }
   }
